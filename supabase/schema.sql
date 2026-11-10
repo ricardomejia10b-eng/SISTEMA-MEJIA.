@@ -84,3 +84,36 @@ create policy "product images update own folder" on storage.objects for update t
 -- update public.profiles set role='admin', full_name='Administrador' where id='UUID_DEL_USUARIO';
 -- Crear el perfil de usuario (reemplazar UUID):
 -- insert into public.profiles(id,full_name,role) values('UUID_DEL_USUARIO','Administrador','admin');
+
+
+-- Alta automática del perfil: primera cuenta = administrador; siguientes = vendedores.
+create or replace function public.handle_new_user_profile()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+ insert into public.profiles(id,full_name,role)
+ values(new.id,coalesce(new.raw_user_meta_data->>'full_name',split_part(new.email,'@',1)),
+   case when not exists(select 1 from public.profiles) then 'admin' else 'vendedor' end)
+ on conflict(id) do nothing;
+ return new;
+end $$;
+drop trigger if exists create_profile_after_signup on auth.users;
+create trigger create_profile_after_signup after insert on auth.users
+for each row execute procedure public.handle_new_user_profile();
+
+-- Registro seguro de abonos: valida el saldo y actualiza el crédito en una sola operación.
+create or replace function public.register_payment(p_sale_id uuid,p_amount numeric,p_note text default null)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare s public.sales%rowtype; payment_id uuid;
+begin
+ if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
+ if p_amount is null or p_amount<=0 then raise exception 'El monto debe ser mayor que cero'; end if;
+ select * into s from public.sales where id=p_sale_id for update;
+ if not found then raise exception 'Venta no encontrada'; end if;
+ if s.created_by<>auth.uid() and not public.is_admin() then raise exception 'No tienes permiso para registrar este abono'; end if;
+ if s.payment_type<>'credito' then raise exception 'La venta no es al crédito'; end if;
+ if p_amount>s.total-s.paid_amount then raise exception 'El abono supera el saldo pendiente'; end if;
+ insert into public.payments(sale_id,amount,note,received_by) values(p_sale_id,p_amount,p_note,auth.uid()) returning id into payment_id;
+ update public.sales set paid_amount=paid_amount+p_amount where id=p_sale_id;
+ return jsonb_build_object('success',true,'payment_id',payment_id,'new_balance',s.total-s.paid_amount-p_amount);
+end $$;
+grant execute on function public.register_payment(uuid,numeric,text) to authenticated;
