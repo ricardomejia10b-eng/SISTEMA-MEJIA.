@@ -13,7 +13,7 @@
 <main>
 <section id="loginView" class="panel login">
 <h2>Ingresar al sistema</h2><p class="muted">Acceso privado para administrador y vendedores.</p>
-<form id="loginForm"><label>Correo electrónico</label><input id="email" type="email" autocomplete="username" required><label>Contraseña</label><input id="password" type="password" autocomplete="current-password" required><div style="margin-top:14px"><button type="submit">Ingresar</button></div></form>
+<form id="loginForm"><label>Correo electrónico</label><input id="email" type="email" autocomplete="username" required><label>Contraseña</label><input id="password" type="password" autocomplete="current-password" required><div class="actions" style="margin-top:14px"><button type="submit">Ingresar</button><button type="button" class="secondary" id="signupBtn">Crear cuenta</button></div></form>
 <div id="loginMsg" class="notice hidden"></div>
 </section>
 <section id="appView" class="hidden">
@@ -54,7 +54,7 @@ function render(){
  $('creditRows').innerHTML=sales.filter(s=>s.payment_type==='credito').map(s=>'<tr><td>'+new Date(s.created_at).toLocaleDateString('es-PE')+'</td><td>'+esc(customers.find(c=>c.id===s.customer_id)?.name||'—')+'</td><td>'+money(s.total)+'</td><td>'+money(s.paid_amount)+'</td><td>'+money(Number(s.total)-Number(s.paid_amount||0))+'</td></tr>').join('');
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)msg('loginMsg',error.message)});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)msg('loginMsg',error.message)});\n$('signupBtn').onclick=async()=>{const email=$('email').value,password=$('password').value;if(!email||password.length<6){msg('loginMsg','Escribe tu correo y una contraseña de al menos 6 caracteres.');return}const {error}=await db.auth.signUp({email,password});msg('loginMsg',error?'No se pudo crear la cuenta: '+error.message:'Cuenta creada. Revisa tu correo si Supabase solicita confirmación. La primera cuenta será administrador; las siguientes serán vendedores.')};
 $('logout').onclick=()=>db.auth.signOut();
 db.auth.onAuthStateChange(async(_event,session)=>{currentUser=session?.user||null;showApp(!!currentUser);if(currentUser)await loadData()});
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.remove('active');x.classList.add('secondary')});b.classList.add('active');b.classList.remove('secondary');document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));$(b.dataset.tab).classList.remove('hidden')});
