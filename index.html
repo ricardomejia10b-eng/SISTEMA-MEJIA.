@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172554"><title>SISTEMA MEJIA</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#f3f6fb}*{box-sizing:border-box}body{margin:0}header{background:#172554;color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}header h1{font-size:20px;margin:0}main{max-width:1100px;margin:auto;padding:18px}.panel{background:white;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #15264a12}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button,button{border:0;border-radius:9px;padding:10px 14px;background:#1d4ed8;color:white;font-weight:600;cursor:pointer}.tabs button.secondary,button.secondary{background:#e7edf8;color:#172554}.tabs button.active{background:#172554;color:white}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.stat{font-size:26px;font-weight:750}.muted{color:#65718a;font-size:13px}label{display:block;font-size:13px;font-weight:650;margin:10px 0 5px}input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;background:white}form .grid{gap:8px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5eaf2}th{color:#526078}.tablewrap{overflow:auto}.hidden{display:none!important}.notice{padding:12px;border-radius:9px;background:#eff6ff;color:#1e3a8a;margin:10px 0}.danger{background:#fff1f2;color:#9f1239}.actions{display:flex;gap:8px;flex-wrap:wrap}.product-img{width:42px;height:42px;object-fit:cover;border-radius:8px;background:#e2e8f0}.login{max-width:420px;margin:40px auto}.right{display:flex;gap:8px;align-items:center}@media(max-width:600px){main{padding:10px}.panel{padding:12px}header{padding:14px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<header><h1>🛍️ SISTEMA MEJIA</h1><div class="right"><span id="userLabel" class="muted" style="color:#dbeafe"></span><button id="logout" class="secondary hidden">Cerrar sesión</button></div></header>
+<main>
+<section id="loginView" class="panel login">
+<h2>Ingresar al sistema</h2><p class="muted">Acceso privado para administrador y vendedores.</p>
+<form id="loginForm"><label>Correo electrónico</label><input id="email" type="email" autocomplete="username" required><label>Contraseña</label><input id="password" type="password" autocomplete="current-password" required><div style="margin-top:14px"><button type="submit">Ingresar</button></div></form>
+<div id="loginMsg" class="notice hidden"></div>
+</section>
+<section id="appView" class="hidden">
+<div id="setupMsg" class="notice hidden"></div>
+<nav class="tabs panel" id="tabs">
+<button data-tab="inicio" class="active">Inicio</button><button data-tab="productos" class="secondary">Productos</button><button data-tab="ventas" class="secondary">Ventas</button><button data-tab="clientes" class="secondary">Clientes</button><button data-tab="creditos" class="secondary">Créditos</button><button data-tab="usuarios" class="secondary admin-only">Usuarios</button>
+</nav>
+<section id="inicio" class="tab panel"><h2>Resumen</h2><div class="grid"><div class="panel"><div class="muted">Productos registrados</div><div class="stat" id="countProducts">0</div></div><div class="panel"><div class="muted">Ventas registradas</div><div class="stat" id="countSales">0</div></div><div class="panel"><div class="muted">Clientes</div><div class="stat" id="countCustomers">0</div></div><div class="panel"><div class="muted">Saldo por cobrar</div><div class="stat" id="totalDebt">S/ 0.00</div></div></div><p class="muted">Los datos se sincronizan con Supabase cuando la base de datos está configurada.</p></section>
+<section id="productos" class="tab panel hidden"><h2>Productos</h2><form id="productForm"><div class="grid"><div><label>Nombre</label><input id="pName" required></div><div><label>Código / código de barras</label><input id="pCode"></div><div><label>Precio de venta (S/)</label><input id="pPrice" type="number" min="0" step=".01" required></div><div><label>Stock</label><input id="pStock" type="number" min="0" step="1" value="0" required></div><div><label>Foto del producto</label><input id="pImage" type="file" accept="image/*" capture="environment"></div></div><div class="actions" style="margin-top:12px"><button>Guardar producto</button><button type="reset" class="secondary">Limpiar</button></div></form><div class="tablewrap"><table><thead><tr><th>Foto</th><th>Producto</th><th>Código</th><th>Precio</th><th>Stock</th></tr></thead><tbody id="productRows"></tbody></table></div></section>
+<section id="ventas" class="tab panel hidden"><h2>Registrar venta</h2><form id="saleForm"><div class="grid"><div><label>Producto</label><select id="saleProduct" required></select></div><div><label>Cantidad</label><input id="saleQty" type="number" min="1" value="1" required></div><div><label>Cliente (opcional)</label><select id="saleCustomer"><option value="">Venta general</option></select></div><div><label>Tipo de pago</label><select id="saleType"><option value="contado">Contado</option><option value="credito">Crédito</option></select></div></div><button style="margin-top:12px">Registrar venta</button></form><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Total</th><th>Pago</th></tr></thead><tbody id="saleRows"></tbody></table></div></section>
+<section id="clientes" class="tab panel hidden"><h2>Clientes</h2><form id="customerForm"><div class="grid"><div><label>Nombre</label><input id="cName" required></div><div><label>Teléfono</label><input id="cPhone"></div><div><label>Dirección</label><input id="cAddress"></div></div><button style="margin-top:12px">Guardar cliente</button></form><div class="tablewrap"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Dirección</th></tr></thead><tbody id="customerRows"></tbody></table></div></section>
+<section id="creditos" class="tab panel hidden"><h2>Créditos y abonos</h2><p class="muted">Aquí se mostrarán las ventas al crédito y sus pagos registrados.</p><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Abonado</th><th>Saldo</th></tr></thead><tbody id="creditRows"></tbody></table></div></section>
+<section id="usuarios" class="tab panel hidden admin-only"><h2>Usuarios y vendedores</h2><p>Los usuarios se crean desde Supabase Authentication. El administrador asigna el rol en la tabla <code>profiles</code>.</p><p class="muted">Por seguridad, un vendedor solo debe acceder a sus propias operaciones; el administrador puede supervisar todas.</p></section>
+</section>
+</main>
+<script>
+const SUPABASE_URL='https://aqjhsrwzdnugwcgeqohg.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_cAiV8RHhtaN1bO1N1VTjlw_TyuHSE1v';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let currentUser=null,currentRole='vendedor',products=[],customers=[],sales=[];
+const $=id=>document.getElementById(id), money=n=>'S/ '+Number(n||0).toFixed(2), msg=(id,t)=>{ $(id).textContent=t;$(id).classList.remove('hidden')};
+function showApp(on){$('loginView').classList.toggle('hidden',on);$('appView').classList.toggle('hidden',!on);$('logout').classList.toggle('hidden',!on)}
+async function loadData(){
+ const [p,c,s,profile]=await Promise.all([db.from('products').select('*').order('name'),db.from('customers').select('*').order('name'),db.from('sales').select('*, sale_items(product_name,quantity)').order('created_at',{ascending:false}),db.from('profiles').select('role,full_name').eq('id',currentUser.id).maybeSingle()]);
+ if(p.error||c.error||s.error){msg('setupMsg','La cuenta inició sesión, pero falta crear o configurar las tablas de Supabase. Ejecuta el archivo supabase/schema.sql del repositorio.');return}
+ products=p.data||[];customers=c.data||[];sales=s.data||[];currentRole=profile.data?.role||'vendedor';$('userLabel').textContent=profile.data?.full_name||currentUser.email;
+ document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',currentRole!=='admin'));
+ render();
+}
+function render(){
+ $('countProducts').textContent=products.length;$('countSales').textContent=sales.length;$('countCustomers').textContent=customers.length;
+ const debt=sales.filter(x=>x.payment_type==='credito').reduce((a,x)=>a+Number(x.total)-Number(x.paid_amount||0),0);$('totalDebt').textContent=money(debt);
+ $('productRows').innerHTML=products.map(p=>'<tr><td>'+(p.image_url?'<img class="product-img" src="'+p.image_url+'">':'📦')+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.code||'—')+'</td><td>'+money(p.price)+'</td><td>'+p.stock+'</td></tr>').join('');
+ $('customerRows').innerHTML=customers.map(c=>'<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.address||'—')+'</td></tr>').join('');
+ $('saleProduct').innerHTML=products.map(p=>'<option value="'+p.id+'">'+esc(p.name)+' · '+money(p.price)+' · stock '+p.stock+'</option>').join('');
+ $('saleCustomer').innerHTML='<option value="">Venta general</option>'+customers.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
+ $('saleRows').innerHTML=sales.map(s=>'<tr><td>'+new Date(s.created_at).toLocaleDateString('es-PE')+'</td><td>'+esc(s.sale_items?.map(i=>i.product_name).join(', ')||'Venta')+'</td><td>'+s.sale_items?.reduce((a,i)=>a+i.quantity,0)+'</td><td>'+money(s.total)+'</td><td>'+esc(s.payment_type)+'</td></tr>').join('');
+ $('creditRows').innerHTML=sales.filter(s=>s.payment_type==='credito').map(s=>'<tr><td>'+new Date(s.created_at).toLocaleDateString('es-PE')+'</td><td>'+esc(customers.find(c=>c.id===s.customer_id)?.name||'—')+'</td><td>'+money(s.total)+'</td><td>'+money(s.paid_amount)+'</td><td>'+money(Number(s.total)-Number(s.paid_amount||0))+'</td></tr>').join('');
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)msg('loginMsg',error.message)});
+$('logout').onclick=()=>db.auth.signOut();
+db.auth.onAuthStateChange(async(_event,session)=>{currentUser=session?.user||null;showApp(!!currentUser);if(currentUser)await loadData()});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.remove('active');x.classList.add('secondary')});b.classList.add('active');b.classList.remove('secondary');document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));$(b.dataset.tab).classList.remove('hidden')});
+$('productForm').onsubmit=async e=>{e.preventDefault();let image_url=null;const f=$('pImage').files[0];if(f){const path=currentUser.id+'/'+Date.now()+'-'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_');const up=await db.storage.from('product-images').upload(path,f,{upsert:false});if(up.error){alert('No se pudo subir la foto: '+up.error.message);return}image_url=db.storage.from('product-images').getPublicUrl(path).data.publicUrl}
+const {error}=await db.from('products').insert({name:$('pName').value,code:$('pCode').value||null,price:Number($('pPrice').value),stock:Number($('pStock').value),image_url,created_by:currentUser.id});if(error)alert(error.message);else{$('productForm').reset();await loadData()}};
+$('customerForm').onsubmit=async e=>{e.preventDefault();const {error}=await db.from('customers').insert({name:$('cName').value,phone:$('cPhone').value,address:$('cAddress').value,created_by:currentUser.id});if(error)alert(error.message);else{$('customerForm').reset();await loadData()}};
+$('saleForm').onsubmit=async e=>{e.preventDefault();const p=products.find(x=>x.id===$('saleProduct').value),qty=Number($('saleQty').value);if(!p||p.stock<qty){alert('Producto no disponible o stock insuficiente');return}const total=p.price*qty;const {data:sale,error}=await db.from('sales').insert({customer_id:$('saleCustomer').value||null,payment_type:$('saleType').value,total,paid_amount:$('saleType').value==='contado'?total:0,created_by:currentUser.id}).select().single();if(error){alert(error.message);return}const {error:ie}=await db.from('sale_items').insert({sale_id:sale.id,product_id:p.id,product_name:p.name,quantity:qty,unit_price:p.price,line_total:total});if(ie){alert(ie.message);return}const {error:se}=await db.from('products').update({stock:p.stock-qty}).eq('id',p.id);if(se)alert(se.message);await loadData()};
+</script>
+</body></html>
