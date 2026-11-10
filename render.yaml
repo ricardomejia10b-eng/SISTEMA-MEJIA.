@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: sistema-mejia
+    runtime: static
+    buildCommand: echo "Publicando SISTEMA MEJIA"
+    staticPublishPath: .
+    autoDeploy: true
