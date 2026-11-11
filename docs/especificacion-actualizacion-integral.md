@@ -1,38 +1,50 @@
-# SISTEMA MEJIA — especificacion consolidada de actualizacion
+# SISTEMA MEJIA — especificación consolidada de actualización
 
-Esta especificacion se implementa sobre el sistema existente y preserva sus registros.
+La actualización se implementará sobre la rama de trabajo y sobre la estructura real de Supabase. No se deben borrar registros, perfiles ni usuarios. No publicar en producción hasta completar las pruebas.
+
+## Decisiones de compatibilidad confirmadas
+
+- El control de caja canónico será `cash_sessions`: las funciones actuales de ventas, pagos y movimientos ya dependen de esa tabla.
+- `cash_registers` queda en compatibilidad temporal; no se debe abrir ni cerrar una caja nueva desde la interfaz ni eliminar la tabla durante esta fase.
+- Las ventas deben finalizar mediante una única operación transaccional en Supabase. La interfaz no debe insertar venta, detalle y descuento de inventario en solicitudes separadas.
+- Los métodos de cobro de la aplicación se expresarán como efectivo, Yape, mixto y crédito. Antes de cambiar las restricciones SQL existentes hay que comprobar los valores admitidos por cada tabla.
+- Las políticas RLS existentes se conservan como base: administrador gestiona productos; vendedores consultan catálogo y operan sus ventas, créditos y caja; administrador supervisa globalmente. No se relajan políticas para hacer funcionar la interfaz.
 
 ## Productos
-- Busqueda por nombre o codigo y lectura de codigo de barras mediante camara cuando el dispositivo/navegador lo permita.
-- Listado: foto, producto, codigo, precio mayorista, precio minorista, stock y accion de escaner.
-- Alta y edicion de producto: nombre, codigo, precios mayorista/minorista, stock y foto desde camara o archivo.
-- Mantener fotos sincronizadas mediante Storage de Supabase.
+- Búsqueda por nombre, código y código de barras.
+- Listado: foto, producto, código, precio mayorista, precio minorista, stock y acción de escáner.
+- Alta y edición: nombre, código, precios mayorista/minorista, stock y foto desde cámara o archivo.
+- Las imágenes se guardan en Supabase Storage y se sincronizan entre dispositivos. Mostrar imagen predeterminada cuando no exista foto.
 
 ## Ventas y caja
-- Pestañas de apertura y cierre de caja. No permitir ventas sin caja abierta.
+- Apertura y cierre usando exclusivamente `cash_sessions`.
+- No permitir ventas sin sesión abierta.
 - Apertura registra fecha/hora y efectivo inicial.
-- Cierre resume el historial del dia: efectivo, Yape, credito y gran total; no permitir cerrar si el conteo declarado no cuadra con los importes registrados, salvo ajuste autorizado y documentado.
-- Historial consultable por fecha.
-- Iniciar venta con carrito multi-producto, codigo unico por compra, selector mayorista/minorista, cantidades +/-, eliminar linea, calculo automatico y comprobante.
-- Pago: efectivo, Yape, mixto o credito. Credito permite cliente registrado y adelanto; el saldo se refleja en el historial de creditos.
-- Comentarios opcionales. Nombre libre opcional solo para compras grandes sin cliente registrado.
-- El inventario se descuenta una sola vez al confirmar toda la venta, tanto contado como credito. Agregar o quitar articulos del carrito no modifica stock. Bloquear stock insuficiente.
-- Pago mixto requiere importes de efectivo y Yape cuya suma sea el importe pagado. En contado, la suma debe igualar el total; en credito, el pago inicial no puede superar el total.
+- Cierre resume movimientos registrados y separa efectivo, Yape y crédito. Debe mostrar esperado, contado y diferencia; no declarar conciliado si no coincide. Cualquier ajuste requiere autorización y registro.
+- Historial filtrable por fecha.
+- Carrito multi-producto, código único por compra, selector mayorista/minorista, cantidades +/-, eliminación de líneas y cálculo automático.
+- Pago efectivo, Yape, mixto o crédito. En crédito se permite adelanto y saldo pendiente.
+- Comentarios opcionales y nombre libre del cliente para compras grandes.
+- El inventario se descuenta exactamente una vez al confirmar la venta; nunca al editar el carrito. Bloquear stock insuficiente.
+- La confirmación de venta, detalle, pagos, movimientos de caja y descuento de stock deben ser atómicos.
 
 ## Clientes
-- Nombre, telefono y direccion; crear y editar.
-- Consulta por cliente de compras, productos, fechas, cantidades, creditos/deudas y pagos/abonos.
-- Detalle de cuenta: fecha, cliente, total venta, abono y saldo.
+- Nombre, teléfono y dirección; crear, editar y buscar.
+- Historial por cliente: compras, productos, fechas, cantidades, créditos/deudas y abonos.
+- Estado de cuenta con total, abonado y saldo.
 
-## Creditos
-- Historial: fecha, cliente, codigo de venta, total, abonado y saldo.
-- Registrar abonos con validacion de saldo y actualizar el saldo automaticamente.
+## Créditos
+- Historial con fecha, cliente, código de venta, total, abonado y saldo.
+- Registrar abonos con validación de saldo; actualizar automáticamente el saldo.
+- Un abono no vuelve a descontar inventario.
 
 ## Usuarios
-- Seccion visible solo para administrador.
-- Listado de nombre, correo y rol/estado. Nunca mostrar contrasenas: Authentication no permite leer contrasenas en texto claro; usar restablecimiento seguro.
+- Sección solo para administrador.
+- Listado de nombre, correo, rol y estado.
+- Nunca mostrar contraseñas. Los cambios de acceso deben usar los flujos seguros de Supabase Authentication.
 
-## Seguridad y compatibilidad
-- Migraciones aditivas; no borrar ni truncar datos.
-- Acceso vendedor limitado a sus operaciones y administrador con supervision global.
-- Probar flujos de venta, pagos, caja, inventario y creditos antes de publicar.
+## Reglas de entrega
+1. Migraciones aditivas, revisadas contra el esquema real; no ejecutar los SQL antiguos incompatibles.
+2. Mantener intacta la rama `main` durante el desarrollo.
+3. Probar apertura/cierre, ventas contado/crédito/mixtas, concurrencia de stock, abonos, RLS e imágenes.
+4. Solo después de aprobación explícita, integrar a producción y desplegar.
