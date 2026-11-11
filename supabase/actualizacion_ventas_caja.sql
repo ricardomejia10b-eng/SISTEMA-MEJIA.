@@ -117,6 +117,7 @@ begin
 end $$;
 
 -- Abono protegido y contabilizado en la caja abierta del vendedor.
+drop function if exists public.register_payment(uuid,numeric,text);
 create or replace function public.register_payment(p_sale_id uuid,p_amount numeric,p_note text default null,p_payment_method text default 'efectivo')
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare s public.sales%rowtype; payment_id uuid; v_cash uuid;
