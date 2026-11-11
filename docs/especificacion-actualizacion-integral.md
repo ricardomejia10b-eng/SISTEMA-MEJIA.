@@ -60,3 +60,15 @@ Se añadió `supabase/actualizacion_integral_etapa2.sql` como migración complem
 - La interfaz no debe cambiar a estas funciones hasta que la migración sea revisada y ejecutada correctamente en Supabase.
 
 Orden previsto: revisar etapa 1 y etapa 2; ejecutar ambas solo con aprobación; adaptar la interfaz para las nuevas funciones; probar con datos de prueba; recién después evaluar publicación.
+
+
+## Registro de avance — etapas 1 y 2 aplicadas
+
+- La etapa 1 (supabase/actualizacion_integral_etapa1.sql) fue ejecutada por el usuario en Supabase y verificada: existen sale_code, comments, cash_amount y yape_amount; también se confirmaron los cuatro índices previstos.
+- La estructura real de customers fue verificada: id, name, phone, address, created_by y created_at.
+- La etapa 2 (supabase/actualizacion_integral_etapa2.sql) fue ejecutada por el usuario y verificada: finalize_sale_v2 y get_cash_session_summary existen; authenticated puede ejecutarlas y anon no.
+- Se conserva la función original finalize_sale y no se reemplazaron las funciones de apertura, abonos o cierre.
+- En index.html, rama de trabajo, el formulario de ventas ahora llama a finalize_sale_v2 y envía cliente, nombre libre, comentarios, tipo de venta, artículos y pagos. También consulta get_cash_session_summary para presentar efectivo/QR esperado, ventas a crédito, abonos, saldo y total vendido.
+- Se agregó validación de correspondencia entre método seleccionado e importes de efectivo/Yape para ventas al contado y crédito.
+
+Estado: integración inicial de ventas y resumen de caja preparada en la rama de trabajo. Aún requiere pruebas funcionales completas; no se ha integrado a main ni desplegado a producción. Las demás funciones solicitadas (incluyendo historial filtrable, estado de cuenta detallado, imágenes sincronizadas, gestión de usuarios y comprobante) deben seguir verificándose e implementándose antes de considerar terminada la actualización integral.
