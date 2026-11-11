@@ -48,3 +48,15 @@ La actualización se implementará sobre la rama de trabajo y sobre la estructur
 2. Mantener intacta la rama `main` durante el desarrollo.
 3. Probar apertura/cierre, ventas contado/crédito/mixtas, concurrencia de stock, abonos, RLS e imágenes.
 4. Solo después de aprobación explícita, integrar a producción y desplegar.
+
+
+## Etapa 2 preparada: datos de venta y resumen de caja
+
+Se añadió `supabase/actualizacion_integral_etapa2.sql` como migración complementaria, pendiente de revisión y ejecución autorizada.
+
+- Crea `finalize_sale_v2`, sin reemplazar `finalize_sale`. Conserva la transacción de venta, detalle, pagos, movimientos y descuento de stock; además guarda nombre libre, comentarios y código único.
+- Crea `get_cash_session_summary` para separar el efectivo y QR realmente recibidos del total vendido a crédito y del saldo pendiente.
+- La función de cierre actual `close_cash_session` se conserva. Su conciliación de efectivo/QR no debe sumar el saldo pendiente de crédito como si fuera dinero en caja.
+- La interfaz no debe cambiar a estas funciones hasta que la migración sea revisada y ejecutada correctamente en Supabase.
+
+Orden previsto: revisar etapa 1 y etapa 2; ejecutar ambas solo con aprobación; adaptar la interfaz para las nuevas funciones; probar con datos de prueba; recién después evaluar publicación.
