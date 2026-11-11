@@ -72,3 +72,19 @@ Orden previsto: revisar etapa 1 y etapa 2; ejecutar ambas solo con aprobación; 
 - Se agregó validación de correspondencia entre método seleccionado e importes de efectivo/Yape para ventas al contado y crédito.
 
 Estado: integración inicial de ventas y resumen de caja preparada en la rama de trabajo. Aún requiere pruebas funcionales completas; no se ha integrado a main ni desplegado a producción. Las demás funciones solicitadas (incluyendo historial filtrable, estado de cuenta detallado, imágenes sincronizadas, gestión de usuarios y comprobante) deben seguir verificándose e implementándose antes de considerar terminada la actualización integral.
+
+
+## Integración adicional de interfaz — rama de trabajo
+
+Se amplió index.html sin publicar a producción:
+- Historial de ventas con filtros por fecha desde/hasta y búsqueda por código o cliente.
+- Comprobante imprimible por venta, con código, fecha, cliente, detalle de productos, cantidades, precios, subtotales, total, abonado, saldo y comentarios.
+- Consulta de estado de cuenta por cliente, con compras, total acumulado, abonado, saldo y detalle de abonos por fecha y método.
+- Listado administrativo de perfiles con nombre, rol y fecha de registro. El correo no se expone porque no se ha confirmado que exista en profiles; la administración de credenciales requiere un flujo seguro de Supabase Auth.
+- Búsqueda externa de imágenes por nombre/código; el usuario descarga una imagen autorizada y la carga al producto. Se conserva selección desde cámara/galería.
+- Se corrigió la carga de precios y subtotales de artículos para el comprobante y se muestra el sale_code real después de guardar la venta.
+- Se evitó cambiar created_by al editar un cliente.
+
+Validación estática: el JavaScript embebido de index.html pasó una comprobación de sintaxis. Esto no sustituye pruebas en navegador ni pruebas reales contra Supabase.
+
+Pendiente antes de producción: verificar en navegador con usuarios vendedor y administrador; probar apertura/cierre, venta contado, crédito y mixta, descuento de stock, abonos, consulta de cliente, filtros, impresión, permisos RLS y subida/visualización de imágenes. También queda por confirmar bucket y políticas de Storage, flujo de escáner por cámara y operaciones administrativas de Auth. No integrar a main ni desplegar hasta completar pruebas y autorización explícita.
