@@ -87,8 +87,8 @@ begin
   if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
     raise exception 'Agrega al menos un producto al carrito';
   end if;
-  if p_sale_kind not in ('mayor','menor') then raise exception 'Tipo de venta inválido'; end if;
-  if p_payment_type not in ('contado','credito') then raise exception 'Tipo de pago inválido'; end if;
+  if p_sale_kind is null or p_sale_kind not in ('mayor','menor') then raise exception 'Tipo de venta inválido'; end if;
+  if p_payment_type is null or p_payment_type not in ('contado','credito') then raise exception 'Tipo de pago inválido'; end if;
   if p_cash_register_id is null or not exists (
     select 1 from public.cash_registers
     where id = p_cash_register_id and seller_id = auth.uid() and closed_at is null
@@ -120,7 +120,7 @@ begin
   end loop;
 
   if p_payment_type = 'contado' then
-    if p_payment_method not in ('efectivo','qr','mixto') then
+    if p_payment_method is null or p_payment_method not in ('efectivo','qr','mixto') then
       raise exception 'Selecciona efectivo, QR o mixto';
     end if;
     if coalesce(p_cash_amount,0) < 0 or coalesce(p_qr_amount,0) < 0
@@ -139,7 +139,7 @@ begin
     if coalesce(p_advance_amount,0) < 0 or coalesce(p_advance_amount,0) > v_total then
       raise exception 'El adelanto no puede superar el total de la compra';
     end if;
-    if p_advance_amount > 0 and p_advance_method not in ('efectivo','transferencia','qr') then
+    if p_advance_amount > 0 and (p_advance_method is null or p_advance_method not in ('efectivo','transferencia','qr')) then
       raise exception 'Selecciona cómo se recibió el adelanto';
     end if;
     v_paid := coalesce(p_advance_amount,0);
@@ -202,7 +202,7 @@ declare s public.sales%rowtype; v_payment_id uuid;
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   if p_amount is null or p_amount <= 0 then raise exception 'El abono debe ser mayor que cero'; end if;
-  if p_method not in ('efectivo','transferencia','qr') then raise exception 'Forma de pago inválida'; end if;
+  if p_method is null or p_method not in ('efectivo','transferencia','qr') then raise exception 'Forma de pago inválida'; end if;
   select * into s from public.sales where id=p_sale_id for update;
   if not found then raise exception 'Venta no encontrada'; end if;
   if s.created_by<>auth.uid() and not public.is_admin() then
