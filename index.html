@@ -65,7 +65,7 @@ $('closeCashForm').onsubmit=async e=>{e.preventDefault();if(!session)return;cons
 $('saleForm').onsubmit=async e=>{e.preventDefault();if(!session){alert('Abre caja antes de registrar ventas.');return}if(!cart.length){alert('Agrega al menos un producto.');return}for(const x of cart){if(x.quantity>x.stock){alert('Stock insuficiente para '+x.name);return}}
 const total=cart.reduce((n,x)=>n+x.unit_price*x.quantity,0),type=$('paymentType').value,method=$('paymentMethod').value,cash=Number($('cashAmount').value||0),qr=Number($('qrAmount').value||0);
 if(type==='contado'&&Math.round((cash+qr)*100)!==Math.round(total*100)){alert('El efectivo más Yape debe coincidir con el total.');return}
-if(type==='contado'&&method==='efectivo'&&qr!==0||type==='contado'&&method==='qr'&&cash!==0||type==='contado'&&method==='mixto'&&(cash<=0||qr<=0)){alert('Los importes no coinciden con el método seleccionado.');return}
+if(method==='efectivo'&&qr!==0||method==='qr'&&cash!==0||method==='mixto'&&(cash+qr>0&&(cash<=0||qr<=0))){alert('Los importes no coinciden con el método seleccionado.');return}
 const advance=cash+qr;if(type==='credito'&&advance>total){alert('El adelanto supera el total.');return}
 const payments=[];if(type==='contado'){if(cash>0)payments.push({method:'efectivo',amount:cash});if(qr>0)payments.push({method:'qr',amount:qr})}else{if(cash>0)payments.push({method:'efectivo',amount:cash});if(qr>0)payments.push({method:'qr',amount:qr})}
 const args={p_customer_id:$('saleCustomer').value||null,p_customer_name:$('saleCustomerName').value.trim()||null,p_comments:$('saleComments').value.trim()||null,p_sale_type:$('saleKind').value,p_payment_type:type,p_items:cart.map(x=>({product_id:x.product_id,quantity:x.quantity})),p_payments:payments};
