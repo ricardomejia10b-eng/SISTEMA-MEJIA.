@@ -33,8 +33,10 @@ products=pr.data||[];customers=cu.data||[];sales=sa.data||[];role=pf.data?.role|
 document.querySelectorAll('.admin-only').forEach(e=>e.classList.toggle('hidden',role!=='admin'));
 const cr=await db.from('cash_sessions').select('*').eq('seller_id',user.id).eq('status','open').maybeSingle();session=cr.data||null;
 render();
+if(session)await refreshCashSummary();
 if(cr.error)notice('globalMsg','No se pudo consultar la caja: '+cr.error.message,'notice danger');else $('globalMsg').classList.add('hidden');
 }
+async function refreshCashSummary(){if(!session)return;const {data,error}=await db.rpc('get_cash_session_summary',{p_session_id:session.id});if(error){$('cashExpected').textContent='No se pudo cargar el resumen de caja: '+error.message;return}$('cashExpected').textContent='Resumen de caja · Efectivo esperado: '+money(data.expected_cash)+' · Yape/QR esperado: '+money(data.expected_qr)+' · Ventas al crédito: '+money(data.credit_sales_total)+' · Abonado en ventas al crédito: '+money(data.credit_paid_total)+' · Saldo pendiente de crédito: '+money(data.credit_balance_total)+' · Total general de ventas: '+money(data.sales_grand_total)+'. El crédito y su saldo se muestran aparte del efectivo y Yape.'}
 function render(){ $('countProducts').textContent=products.length;$('countSales').textContent=sales.length;$('countCustomers').textContent=customers.length;
 const debt=sales.filter(s=>s.payment_type==='credito').reduce((n,s)=>n+Number(s.total)-Number(s.paid_amount||0),0);$('totalDebt').textContent=money(debt);
 $('homeCash').textContent=session?'Tienes una caja abierta desde '+new Date(session.opened_at).toLocaleString('es-PE'):'No tienes una caja abierta.';
@@ -66,9 +68,9 @@ if(type==='contado'&&Math.round((cash+qr)*100)!==Math.round(total*100)){alert('E
 if(type==='contado'&&method==='efectivo'&&qr!==0||type==='contado'&&method==='qr'&&cash!==0||type==='contado'&&method==='mixto'&&(cash<=0||qr<=0)){alert('Los importes no coinciden con el método seleccionado.');return}
 const advance=cash+qr;if(type==='credito'&&advance>total){alert('El adelanto supera el total.');return}
 const payments=[];if(type==='contado'){if(cash>0)payments.push({method:'efectivo',amount:cash});if(qr>0)payments.push({method:'qr',amount:qr})}else{if(cash>0)payments.push({method:'efectivo',amount:cash});if(qr>0)payments.push({method:'qr',amount:qr})}
-const args={p_customer_id:$('saleCustomer').value||null,p_sale_type:$('saleKind').value,p_payment_type:type,p_items:cart.map(x=>({product_id:x.product_id,quantity:x.quantity})),p_payments:payments};
+const args={p_customer_id:$('saleCustomer').value||null,p_customer_name:$('saleCustomerName').value.trim()||null,p_comments:$('saleComments').value.trim()||null,p_sale_type:$('saleKind').value,p_payment_type:type,p_items:cart.map(x=>({product_id:x.product_id,quantity:x.quantity})),p_payments:payments};
 const btn=$('finishSale');btn.disabled=true;btn.textContent='Procesando venta...';
-try{const {data,error}=await db.rpc('finalize_sale',args);if(error){alert('No se registró la venta: '+error.message);return}alert('Venta registrada correctamente. '+(typeof data==='string'?'Código: '+data: ''));cart=[];$('saleForm').reset();renderCart();await loadAll()}finally{btn.disabled=false;btn.textContent='Confirmar venta'}};
+try{const {data,error}=await db.rpc('finalize_sale_v2',args);if(error){alert('No se registró la venta: '+error.message);return}alert('Venta registrada correctamente. Código: '+String(data||'').slice(0,8));cart=[];$('saleForm').reset();renderCart();await loadAll()}finally{btn.disabled=false;btn.textContent='Confirmar venta'}};
 $('creditRows').onclick=async e=>{const b=e.target.closest('[data-abono]');if(!b)return;const bal=Number(b.dataset.balance),amount=Number(prompt('Saldo pendiente: '+money(bal)+'\nImporte del abono:',bal));if(!Number.isFinite(amount)||amount<=0||amount>bal)return alert('Importe inválido.');const method=prompt('Método: efectivo, qr o transferencia','efectivo');if(!['efectivo','qr'].includes(method))return alert('Para que el abono se refleje correctamente en el cierre de caja, selecciona efectivo o qr.');const {error}=await db.rpc('register_payment',{p_sale_id:b.dataset.abono,p_amount:amount,p_note:'Abono de crédito',p_payment_method:method});if(error)alert(error.message);else await loadAll()};
 $('newProduct').onclick=()=>{$('productForm').reset();$('editProductId').value='';$('productFormTitle').textContent='Nuevo producto';$('productForm').classList.remove('hidden')};
 $('cancelProduct').onclick=()=>$('productForm').classList.add('hidden');
