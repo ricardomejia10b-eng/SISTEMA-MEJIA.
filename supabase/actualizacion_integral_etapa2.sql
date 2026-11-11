@@ -38,8 +38,8 @@ declare
   v_yape_amount numeric(12,2) := 0;
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
-  if p_sale_type not in ('mayorista','minorista') then raise exception 'Tipo de venta inválido'; end if;
-  if p_payment_type not in ('contado','credito') then raise exception 'Tipo de pago inválido'; end if;
+  if p_sale_type is null or p_sale_type not in ('mayorista','minorista') then raise exception 'Tipo de venta inválido'; end if;
+  if p_payment_type is null or p_payment_type not in ('contado','credito') then raise exception 'Tipo de pago inválido'; end if;
   if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items)=0 then
     raise exception 'El carrito está vacío';
   end if;
@@ -88,7 +88,7 @@ begin
   for v_item in select value from jsonb_array_elements(p_payments) loop
     v_method := v_item->>'method';
     v_amount := (v_item->>'amount')::numeric;
-    if v_method not in ('efectivo','qr','transferencia') or v_amount is null or v_amount<=0 then
+    if v_method is null or v_method not in ('efectivo','qr','transferencia') or v_amount is null or v_amount<=0 then
       raise exception 'Detalle de pago inválido';
     end if;
     v_paid := v_paid + v_amount;
@@ -228,6 +228,12 @@ begin
   );
 end
 $function$;
+
+-- Restringir la ejecución de las funciones SECURITY DEFINER a usuarios autenticados.
+revoke all on function public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb) from public, anon;
+revoke all on function public.get_cash_session_summary(uuid) from public, anon;
+grant execute on function public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb) to authenticated;
+grant execute on function public.get_cash_session_summary(uuid) to authenticated;
 
 commit;
 
