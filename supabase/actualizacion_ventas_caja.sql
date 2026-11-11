@@ -144,4 +144,64 @@ grant execute on function public.open_cash_session(numeric) to authenticated;
 grant execute on function public.close_cash_session(uuid,numeric,numeric,text) to authenticated;
 grant execute on function public.register_payment(uuid,numeric,text,text) to authenticated;
 
+
+-- Finalización transaccional de carrito, inventario, pagos y caja.
+create or replace function public.finalize_sale(
+ p_customer_id uuid, p_sale_type text, p_payment_type text, p_items jsonb, p_payments jsonb
+) returns uuid language plpgsql security definer set search_path=public as $
+declare
+ v_cash uuid; v_total numeric(12,2):=0; v_paid numeric(12,2):=0; v_sale uuid;
+ v_item jsonb; v_product public.products%rowtype; v_qty integer; v_unit numeric(12,2); v_line numeric(12,2);
+ v_method text; v_amount numeric(12,2); v_payment uuid;
+begin
+ if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
+ if p_sale_type not in ('mayorista','minorista') then raise exception 'Tipo de venta inválido'; end if;
+ if p_payment_type not in ('contado','credito') then raise exception 'Tipo de pago inválido'; end if;
+ if p_items is null or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'El carrito está vacío'; end if;
+ if p_payments is null or jsonb_typeof(p_payments)<>'array' then raise exception 'Detalle de pagos inválido'; end if;
+ select id into v_cash from public.cash_sessions where seller_id=auth.uid() and status='open' limit 1;
+ if v_cash is null then raise exception 'Primero debes abrir tu caja'; end if;
+ for v_item in select value from jsonb_array_elements(p_items) loop
+  select * into v_product from public.products where id=(v_item->>'product_id')::uuid for update;
+  if not found then raise exception 'Uno de los productos ya no existe'; end if;
+  v_qty=(v_item->>'quantity')::integer;
+  if v_qty is null or v_qty<1 then raise exception 'Cantidad inválida'; end if;
+  if v_product.stock<v_qty then raise exception 'Stock insuficiente para %',v_product.name; end if;
+  v_unit=case when p_sale_type='mayorista' then v_product.wholesale_price else v_product.retail_price end;
+  if v_unit<=0 then raise exception 'El producto % no tiene precio configurado para este tipo de venta',v_product.name; end if;
+  v_total=v_total+(v_unit*v_qty);
+ end loop;
+ for v_item in select value from jsonb_array_elements(p_payments) loop
+  v_method=v_item->>'method'; v_amount=(v_item->>'amount')::numeric;
+  if v_method not in ('efectivo','qr','transferencia') or v_amount is null or v_amount<=0 then raise exception 'Detalle de pago inválido'; end if;
+  v_paid=v_paid+v_amount;
+ end loop;
+ if p_payment_type='contado' and abs(v_paid-v_total)>0.009 then raise exception 'Los pagos deben sumar exactamente el total'; end if;
+ if p_payment_type='credito' and v_paid>v_total then raise exception 'El adelanto no puede superar el total'; end if;
+ insert into public.sales(customer_id,payment_type,total,paid_amount,created_by,created_at,sale_type,payment_method,cash_session_id,seller_id)
+ values(p_customer_id,p_payment_type,v_total,v_paid,auth.uid(),now(),p_sale_type,
+  case when (select count(distinct x->>'method') from jsonb_array_elements(p_payments) as t(x))>1 then 'mixto' else (p_payments->0->>'method') end,
+  v_cash,auth.uid()) returning id into v_sale;
+ for v_item in select value from jsonb_array_elements(p_items) loop
+  select * into v_product from public.products where id=(v_item->>'product_id')::uuid for update;
+  v_qty=(v_item->>'quantity')::integer;
+  v_unit=case when p_sale_type='mayorista' then v_product.wholesale_price else v_product.retail_price end;
+  v_line=v_unit*v_qty;
+  insert into public.sale_items(sale_id,product_id,product_name,quantity,unit_price,line_total)
+  values(v_sale,v_product.id,v_product.name,v_qty,v_unit,v_line);
+  update public.products set stock=stock-v_qty where id=v_product.id;
+ end loop;
+ for v_item in select value from jsonb_array_elements(p_payments) loop
+  v_method=v_item->>'method'; v_amount=(v_item->>'amount')::numeric;
+  insert into public.payments(sale_id,amount,note,received_by,payment_method,cash_session_id)
+  values(v_sale,v_amount,case when p_payment_type='credito' then 'Adelanto inicial' else 'Pago de venta al contado' end,auth.uid(),v_method,v_cash)
+  returning id into v_payment;
+  insert into public.cash_movements(cash_session_id,seller_id,movement_type,payment_method,amount,sale_id,payment_id,description)
+  values(v_cash,auth.uid(),case when p_payment_type='credito' then 'credit_advance' else 'sale' end,v_method,v_amount,v_sale,v_payment,
+   case when p_payment_type='credito' then 'Adelanto de crédito' else 'Venta al contado' end);
+ end loop;
+ return v_sale;
+end $;
+grant execute on function public.finalize_sale(uuid,text,text,jsonb,jsonb) to authenticated;
+
 commit;
