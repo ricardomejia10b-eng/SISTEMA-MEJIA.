@@ -25,6 +25,9 @@ create table if not exists public.cash_registers (
       or (closing_cash is not null and closing_kr is not null and closed_at is not null))
 );
 
+create unique index if not exists cash_registers_one_open_per_seller
+  on public.cash_registers(seller_id) where closed_at is null;
+
 alter table public.sales
   drop constraint if exists sales_cash_register_id_fkey;
 alter table public.sales
