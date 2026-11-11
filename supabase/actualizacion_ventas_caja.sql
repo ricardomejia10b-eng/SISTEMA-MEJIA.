@@ -149,7 +149,7 @@ grant execute on function public.register_payment(uuid,numeric,text,text) to aut
 -- Finalización transaccional de carrito, inventario, pagos y caja.
 create or replace function public.finalize_sale(
  p_customer_id uuid, p_sale_type text, p_payment_type text, p_items jsonb, p_payments jsonb
-) returns uuid language plpgsql security definer set search_path=public as $
+) returns uuid language plpgsql security definer set search_path=public as $$
 declare
  v_cash uuid; v_total numeric(12,2):=0; v_paid numeric(12,2):=0; v_sale uuid;
  v_item jsonb; v_product public.products%rowtype; v_qty integer; v_unit numeric(12,2); v_line numeric(12,2);
@@ -202,7 +202,7 @@ begin
    case when p_payment_type='credito' then 'Adelanto de crédito' else 'Venta al contado' end);
  end loop;
  return v_sale;
-end $;
+end $$;
 grant execute on function public.finalize_sale(uuid,text,text,jsonb,jsonb) to authenticated;
 
 commit;
