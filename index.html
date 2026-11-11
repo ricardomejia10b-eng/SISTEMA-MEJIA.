@@ -136,5 +136,5 @@ $('signupBtn').onclick=()=>{$('loginView').classList.add('hidden');$('registrati
 $('registrationForm').onsubmit=async e=>{e.preventDefault();const {data,error}=await db.auth.signUp({email:$('regEmail').value.trim(),password:$('regPassword').value});if(error)note('registrationMsg','No se pudo crear la cuenta: '+error.message,'notice danger');else note('registrationMsg',data.session?'Cuenta creada. Inicia sesión.':'Cuenta registrada. Confirma el correo para ingresar.','notice success')};
 $('logout').onclick=()=>db.auth.signOut();
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.remove('active');x.classList.add('secondary')});b.classList.add('active');b.classList.remove('secondary');document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));$(b.dataset.tab).classList.remove('hidden')});
-if(db)db.auth.onAuthStateChange(async(_,s)=>{user=s?.user||null;if(user){showApp(true);await loadData()}else{showApp(false)}});
+if(db)db.auth.onAuthStateChange((_,s)=>{user=s?.user||null;if(user){showApp(true);queueMicrotask(()=>loadData())}else{showApp(false)}});
 </script></body></html>
