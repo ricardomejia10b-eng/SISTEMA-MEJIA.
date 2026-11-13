@@ -61,7 +61,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_profile public.profiles%rowtype;
 begin
@@ -74,7 +74,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists sales_seller_snapshot on public.sales;
 create trigger sales_seller_snapshot
@@ -225,7 +225,7 @@ create or replace function public.set_credit_status()
 returns trigger
 language plpgsql
 set search_path = public
-as $
+as $$
 begin
   if new.payment_type <> 'credito' then
     new.credit_status := null;
@@ -240,7 +240,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists sales_credit_status_sync on public.sales;
 create trigger sales_credit_status_sync
 before insert or update of paid_amount, total, payment_type, due_date on public.sales
@@ -256,7 +256,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if auth.uid() is null or not public.is_admin() then
     raise exception 'Solo el administrador puede ajustar existencias';
@@ -271,7 +271,7 @@ begin
   update public.products set stock = p_new_stock where id = p_product_id;
   if not found then raise exception 'Producto no encontrado'; end if;
 end;
-$;
+$$;
 revoke all on function public.admin_set_product_stock(uuid,integer,text) from public, anon;
 grant execute on function public.admin_set_product_stock(uuid,integer,text) to authenticated;
 
@@ -285,7 +285,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   if p_due_date is not null and p_next_payment_date is not null
@@ -300,7 +300,7 @@ begin
     and (created_by = auth.uid() or public.is_admin());
   if not found then raise exception 'Crédito no encontrado o no tienes permiso para modificarlo'; end if;
 end;
-$;
+$$;
 revoke all on function public.update_credit_dates(uuid,date,date) from public, anon;
 grant execute on function public.update_credit_dates(uuid,date,date) to authenticated;
 
