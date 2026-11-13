@@ -117,6 +117,16 @@ begin
 
   if new.stock is distinct from old.stock then
     v_sale := nullif(current_setting('app.inventory_sale_id', true), '')::uuid;
+    if v_sale is null then
+      select s.id into v_sale
+      from public.sales s
+      join public.sale_items si on si.sale_id = s.id
+      where s.created_by = auth.uid()
+        and s.created_at = transaction_timestamp()
+        and si.product_id = new.id
+      order by s.created_at desc
+      limit 1;
+    end if;
     insert into public.inventory_movements(
       product_id, product_name, movement_type, quantity_before,
       quantity_change, quantity_after, reason, sale_id, performed_by
