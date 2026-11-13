@@ -197,6 +197,35 @@ create trigger sales_credit_status_sync
 before insert or update of paid_amount, total, payment_type, due_date on public.sales
 for each row execute function public.set_credit_status();
 
+-- Ajuste manual de stock con motivo, limitado a administradores.
+create or replace function public.admin_set_product_stock(
+  p_product_id uuid,
+  p_new_stock integer,
+  p_reason text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if auth.uid() is null or not public.is_admin() then
+    raise exception 'Solo el administrador puede ajustar existencias';
+  end if;
+  if p_new_stock is null or p_new_stock < 0 then
+    raise exception 'El stock debe ser un número entero no negativo';
+  end if;
+  if nullif(btrim(p_reason), '') is null then
+    raise exception 'Indica el motivo del ajuste de inventario';
+  end if;
+  perform set_config('app.inventory_reason', btrim(p_reason), true);
+  update public.products set stock = p_new_stock where id = p_product_id;
+  if not found then raise exception 'Producto no encontrado'; end if;
+end;
+$;
+revoke all on function public.admin_set_product_stock(uuid,integer,text) from public, anon;
+grant execute on function public.admin_set_product_stock(uuid,integer,text) to authenticated;
+
 -- 5. Versión de RPC compatible con la operación transaccional existente:
 -- delega en finalize_sale_v2 y guarda entregado/vuelto en la misma transacción.
 create or replace function public.finalize_sale_v3(
