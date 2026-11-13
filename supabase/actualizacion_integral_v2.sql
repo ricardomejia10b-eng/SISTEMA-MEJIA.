@@ -11,7 +11,7 @@ alter table public.profiles
   add column if not exists preferred_theme text not null default 'light';
 
 update public.profiles
-set seller_code = 'VEN-' || upper(substr(replace(id::text, '-', ''), 1, 8))
+set seller_code = 'VEN-' || upper(substr(replace(id::text, '-', ''), 1, 12))
 where role = 'vendedor' and seller_code is null;
 
 create unique index if not exists profiles_seller_code_uidx
