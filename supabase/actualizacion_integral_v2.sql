@@ -92,6 +92,7 @@ using (performed_by = auth.uid() or public.is_admin());
 
 -- Escritura únicamente mediante trigger/RPC privilegiada; no conceder INSERT directo.
 revoke all on public.inventory_movements from anon, authenticated;
+grant select on public.inventory_movements to authenticated;
 
 create or replace function public.log_product_stock_change()
 returns trigger
