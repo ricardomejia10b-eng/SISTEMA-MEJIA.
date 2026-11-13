@@ -137,3 +137,19 @@ El usuario autorizó avanzar con la nueva versión integral tomando como base la
 4. Implementar y probar primero en la rama de actualización y el proyecto Supabase de pruebas.
 5. Probar con roles de administrador y vendedor, casos contado/efectivo con vuelto, Yape, mixto, crédito, abonos, stock, auditoría, filtros, tema, Storage y permisos.
 6. No modificar producción, integrar a main, cerrar cajas ni desplegar hasta que el usuario revise resultados y autorice expresamente.
+
+
+## Avance de implementación — 12 de noviembre de 2026
+
+El usuario confirmó que se debe continuar desde la versión que quedó preparada en pruebas, conservar lo que ya funciona y añadir directamente las mejoras pendientes, sin rehacer el sistema.
+
+### Archivos preparados en la rama `actualizacion-integral-sistema-mejia`
+- `index.html`: historial administrativo con filtro por vendedor y nombre/código en filas; resumen diario filtrable por fecha y vendedor; identificación del vendedor en comprobantes; captura de efectivo entregado y cálculo de vuelto sobre la parte en efectivo; captura/edición de vencimiento y próxima fecha de pago; estado visual de créditos; historial de inventario para administradores; motivo obligatorio para ajustes de stock; escaneo que agrega directamente el producto encontrado; miniatura en el formulario de venta; preferencia de tema claro/oscuro persistida en perfil.
+- `supabase/actualizacion_integral_v2.sql`: migración aditiva que prepara códigos únicos de vendedor, fotografía de nombre/código en ventas, fechas/estado de crédito, efectivo entregado/vuelto, tabla RLS de auditoría de inventario, triggers de stock y estado de crédito, RPC para ajustes de stock, edición de fechas de crédito y `finalize_sale_v3` compatible con la operación transaccional existente.
+- Esta migración está preparada, revisada estructuralmente y guardada en GitHub; **todavía no se ha ejecutado en Supabase**.
+- Se verificó sintaxis JavaScript del script embebido de `index.html` mediante compilación estática; no sustituye la prueba real en navegador.
+- Se verificó que las siete funciones PL/pgSQL nuevas tienen delimitadores dollar-quote balanceados y que la firma de `finalize_sale_v3` coincide con la llamada prevista. Aún falta ejecución real en PostgreSQL para validar la migración.
+- No se ha desplegado el frontend ni ejecutado la migración; no se modificó producción ni se cerró/concili ó ninguna caja.
+
+### Siguiente paso obligatorio
+Ejecutar `supabase/actualizacion_integral_v2.sql` únicamente en el SQL Editor del proyecto de pruebas `vrgfwefnkrdwrtdymfin`. Antes de pulsar Run, confirmar visualmente el proyecto seleccionado. Si la ejecución devuelve cualquier error, detenerse y compartir el error completo; no repetir ni ejecutar fragmentos sueltos hasta revisar el estado de la transacción. Después ejecutar las consultas de verificación y probar el frontend de la rama contra el mismo proyecto de pruebas.
