@@ -227,6 +227,35 @@ $;
 revoke all on function public.admin_set_product_stock(uuid,integer,text) from public, anon;
 grant execute on function public.admin_set_product_stock(uuid,integer,text) to authenticated;
 
+-- Actualización de fechas de crédito permitida al vendedor dueño o al administrador.
+create or replace function public.update_credit_dates(
+  p_sale_id uuid,
+  p_due_date date,
+  p_next_payment_date date
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
+  if p_due_date is not null and p_next_payment_date is not null
+     and p_next_payment_date < p_due_date then
+    raise exception 'La próxima fecha de pago no puede ser anterior al vencimiento';
+  end if;
+  update public.sales
+  set due_date = p_due_date,
+      next_payment_date = p_next_payment_date
+  where id = p_sale_id
+    and payment_type = 'credito'
+    and (created_by = auth.uid() or public.is_admin());
+  if not found then raise exception 'Crédito no encontrado o no tienes permiso para modificarlo'; end if;
+end;
+$;
+revoke all on function public.update_credit_dates(uuid,date,date) from public, anon;
+grant execute on function public.update_credit_dates(uuid,date,date) to authenticated;
+
 -- 5. Versión de RPC compatible con la operación transaccional existente:
 -- delega en finalize_sale_v2 y guarda entregado/vuelto en la misma transacción.
 create or replace function public.finalize_sale_v3(
@@ -303,4 +332,4 @@ commit;
 -- SELECT has_function_privilege('anon',
 --   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)','EXECUTE') AS anon_exec,
 --   has_function_privilege('authenticated',
---   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric)','EXECUTE') AS auth_exec;
+--   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)','EXECUTE') AS auth_exec;
