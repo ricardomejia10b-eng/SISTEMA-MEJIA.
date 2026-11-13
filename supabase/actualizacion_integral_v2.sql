@@ -171,6 +171,32 @@ where not exists (
   where m.product_id = p.id
 );
 
+-- Mantener el estado del crédito sincronizado con abonos y vencimiento.
+create or replace function public.set_credit_status()
+returns trigger
+language plpgsql
+set search_path = public
+as $
+begin
+  if new.payment_type <> 'credito' then
+    new.credit_status := null;
+  elsif new.paid_amount >= new.total then
+    new.credit_status := 'pagado';
+  elsif new.due_date is not null and new.due_date < current_date then
+    new.credit_status := 'vencido';
+  elsif new.paid_amount > 0 then
+    new.credit_status := 'parcial';
+  else
+    new.credit_status := 'pendiente';
+  end if;
+  return new;
+end;
+$;
+drop trigger if exists sales_credit_status_sync on public.sales;
+create trigger sales_credit_status_sync
+before insert or update of paid_amount, total, payment_type, due_date on public.sales
+for each row execute function public.set_credit_status();
+
 -- 5. Versión de RPC compatible con la operación transaccional existente:
 -- delega en finalize_sale_v2 y guarda entregado/vuelto en la misma transacción.
 create or replace function public.finalize_sale_v3(
@@ -182,7 +208,9 @@ create or replace function public.finalize_sale_v3(
   p_items jsonb,
   p_payments jsonb,
   p_cash_tendered numeric,
-  p_cash_change numeric
+  p_cash_change numeric,
+  p_due_date date,
+  p_next_payment_date date
 )
 returns uuid
 language plpgsql
@@ -217,15 +245,22 @@ begin
 
   update public.sales
   set cash_tendered = p_cash_tendered,
-      cash_change = coalesce(p_cash_change,0)
+      cash_change = coalesce(p_cash_change,0),
+      due_date = case when p_payment_type='credito' then p_due_date else null end,
+      next_payment_date = case when p_payment_type='credito' then p_next_payment_date else null end,
+      credit_status = case when p_payment_type='credito' then
+        case when (select paid_amount from public.sales where id=v_sale) >= (select total from public.sales where id=v_sale) then 'pagado'
+             when (select paid_amount from public.sales where id=v_sale) > 0 then 'parcial'
+             else 'pendiente' end
+        else null end
   where id = v_sale and created_by = auth.uid();
 
   return v_sale;
 end;
 $$;
 
-revoke all on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric) from public, anon;
-grant execute on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric) to authenticated;
+revoke all on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date) from public, anon;
+grant execute on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date) to authenticated;
 
 commit;
 
@@ -236,6 +271,6 @@ commit;
 -- WHERE table_schema='public' AND table_name='sales'
 -- AND column_name IN ('due_date','next_payment_date','credit_status','cash_tendered','cash_change');
 -- SELECT has_function_privilege('anon',
---   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric)','EXECUTE') AS anon_exec,
+--   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)','EXECUTE') AS anon_exec,
 --   has_function_privilege('authenticated',
 --   'public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric)','EXECUTE') AS auth_exec;
