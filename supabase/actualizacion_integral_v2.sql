@@ -136,13 +136,13 @@ begin
       case
         when v_sale is not null then 'sale'
         when new.stock > old.stock then 'stock_in'
-        else 'stock_edit'
+        else 'adjustment'
       end,
       old.stock, new.stock - old.stock, new.stock,
       coalesce(v_reason,
         case when v_sale is not null then 'Salida por venta'
              when new.stock > old.stock then 'Ingreso de stock'
-             else 'Ajuste de stock' end),
+             else 'Ajuste manual de stock' end),
       v_sale, v_user
     );
   end if;
@@ -290,10 +290,10 @@ begin
   from jsonb_array_elements(coalesce(p_payments,'[]'::jsonb)) x
   where x->>'method' = 'efectivo';
 
-  if p_cash_tendered < v_cash_applied then
+  if coalesce(p_cash_tendered,0) < v_cash_applied then
     raise exception 'El efectivo entregado no cubre el importe en efectivo';
   end if;
-  if round((p_cash_tendered - v_cash_applied)::numeric,2) <> round(coalesce(p_cash_change,0)::numeric,2) then
+  if round((coalesce(p_cash_tendered,0) - v_cash_applied)::numeric,2) <> round(coalesce(p_cash_change,0)::numeric,2) then
     raise exception 'El vuelto no coincide con el efectivo entregado';
   end if;
 
@@ -303,7 +303,7 @@ begin
   );
 
   update public.sales
-  set cash_tendered = p_cash_tendered,
+  set cash_tendered = coalesce(p_cash_tendered,0),
       cash_change = coalesce(p_cash_change,0),
       due_date = case when p_payment_type='credito' then p_due_date else null end,
       next_payment_date = case when p_payment_type='credito' then p_next_payment_date else null end,
