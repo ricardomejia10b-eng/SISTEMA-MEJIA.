@@ -149,7 +149,7 @@ El usuario confirmó que se debe continuar desde la versión que quedó preparad
 - Esta migración está preparada, revisada estructuralmente y guardada en GitHub; **todavía no se ha ejecutado en Supabase**.
 - Se verificó sintaxis JavaScript del script embebido de `index.html` mediante compilación estática; no sustituye la prueba real en navegador.
 - Se verificó que las siete funciones PL/pgSQL nuevas tienen delimitadores dollar-quote balanceados y que la firma de `finalize_sale_v3` coincide con la llamada prevista. Aún falta ejecución real en PostgreSQL para validar la migración.
-- No se ha desplegado el frontend ni ejecutado la migración; no se modificó producción ni se cerró/concili ó ninguna caja.
+- No se ha desplegado el frontend ni ejecutado la migración; no se modificó producción ni se cerró ni se concilió ninguna caja.
 
 ### Siguiente paso obligatorio
 Ejecutar `supabase/actualizacion_integral_v2.sql` únicamente en el SQL Editor del proyecto de pruebas `vrgfwefnkrdwrtdymfin`. Antes de pulsar Run, confirmar visualmente el proyecto seleccionado. Si la ejecución devuelve cualquier error, detenerse y compartir el error completo; no repetir ni ejecutar fragmentos sueltos hasta revisar el estado de la transacción. Después ejecutar las consultas de verificación y probar el frontend de la rama contra el mismo proyecto de pruebas.
