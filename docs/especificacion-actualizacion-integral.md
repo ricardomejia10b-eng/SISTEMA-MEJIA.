@@ -153,3 +153,6 @@ El usuario confirmó que se debe continuar desde la versión que quedó preparad
 
 ### Siguiente paso obligatorio
 Ejecutar `supabase/actualizacion_integral_v2.sql` únicamente en el SQL Editor del proyecto de pruebas `vrgfwefnkrdwrtdymfin`. Antes de pulsar Run, confirmar visualmente el proyecto seleccionado. Si la ejecución devuelve cualquier error, detenerse y compartir el error completo; no repetir ni ejecutar fragmentos sueltos hasta revisar el estado de la transacción. Después ejecutar las consultas de verificación y probar el frontend de la rama contra el mismo proyecto de pruebas.
+
+- También se incorporó al panel administrativo la consulta de sesiones y resumen de caja por vendedor, sin botones para cerrar o conciliar cajas ajenas.
+- Se agregó `supabase/verificar_actualizacion_integral_v2.sql`, un conjunto de consultas de solo lectura para comprobar códigos, fotografía de vendedor, auditoría, RLS, triggers y permisos RPC después de aplicar la migración.
