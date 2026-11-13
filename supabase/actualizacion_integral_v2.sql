@@ -43,6 +43,44 @@ create trigger assign_seller_code_on_profile
 before insert or update of role on public.profiles
 for each row execute function public.assign_seller_code();
 
+-- Guardar una fotografía del nombre y código del vendedor en cada venta.
+-- Así los comprobantes históricos no cambian si luego se edita el perfil.
+alter table public.sales
+  add column if not exists seller_name text,
+  add column if not exists seller_code text;
+
+update public.sales s
+set seller_name = p.full_name,
+    seller_code = p.seller_code
+from public.profiles p
+where p.id = coalesce(s.seller_id, s.created_by)
+  and (s.seller_name is null or s.seller_code is null);
+
+create or replace function public.snapshot_sale_seller()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_profile public.profiles%rowtype;
+begin
+  select * into v_profile
+  from public.profiles
+  where id = coalesce(new.seller_id, new.created_by);
+  if found then
+    new.seller_name := coalesce(new.seller_name, v_profile.full_name);
+    new.seller_code := coalesce(new.seller_code, v_profile.seller_code);
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists sales_seller_snapshot on public.sales;
+create trigger sales_seller_snapshot
+before insert on public.sales
+for each row execute function public.snapshot_sale_seller();
+
 -- 2. Fechas de seguimiento de créditos. Los datos históricos quedan NULL
 -- porque no se deben inventar vencimientos o acuerdos pasados.
 alter table public.sales
@@ -55,6 +93,16 @@ alter table public.sales
 alter table public.sales
   add constraint sales_credit_status_check
   check (credit_status is null or credit_status in ('pendiente','parcial','pagado','vencido'));
+
+-- Completar estado inicial de los créditos existentes sin asignar fechas ficticias.
+update public.sales
+set credit_status = case
+  when paid_amount >= total then 'pagado'
+  when due_date is not null and due_date < current_date then 'vencido'
+  when paid_amount > 0 then 'parcial'
+  else 'pendiente'
+end
+where payment_type = 'credito' and credit_status is null;
 
 -- 3. Datos de efectivo entregado y vuelto. El efectivo aplicado a la venta
 -- continúa siendo cash_amount; el vuelto no es un movimiento de caja.
