@@ -88,3 +88,52 @@ Se amplió index.html sin publicar a producción:
 Validación estática: el JavaScript embebido de index.html pasó una comprobación de sintaxis. Esto no sustituye pruebas en navegador ni pruebas reales contra Supabase.
 
 Pendiente antes de producción: verificar en navegador con usuarios vendedor y administrador; probar apertura/cierre, venta contado, crédito y mixta, descuento de stock, abonos, consulta de cliente, filtros, impresión, permisos RLS y subida/visualización de imágenes. También queda por confirmar bucket y políticas de Storage, flujo de escáner por cámara y operaciones administrativas de Auth. No integrar a main ni desplegar hasta completar pruebas y autorización explícita.
+
+
+## Alcance ampliado — actualización integral v2 (aprobado para desarrollo en pruebas)
+
+El usuario autorizó avanzar con la nueva versión integral tomando como base la rama de actualización y el proyecto Supabase de pruebas. Mantener `main`, producción y los datos existentes intactos hasta aprobación final.
+
+### Identificación y reportes de vendedores
+- Asignar a cada perfil de vendedor un código único, irrepetible y permanente al crearlo. Debe generarse de forma segura en la base de datos, no depender del navegador ni del nombre editable.
+- Mostrar código y nombre juntos en administración, historial, detalles, reportes y resúmenes.
+- El administrador tendrá una vista de ventas por vendedor: todos o un vendedor específico, con cantidad de operaciones y total vendido por día.
+- Separar total vendido, efectivo cobrado, Yape cobrado, otros medios, adelantos de créditos y saldo pendiente. No confundir ventas a crédito con dinero recibido.
+- Vendedores solo consultan sus propias ventas, su propia caja y sus propios importes. Toda restricción debe aplicarse también en RLS/RPC, no solo ocultando controles de interfaz.
+
+### Confirmación de venta y vuelto
+- En ventas al contado con efectivo, añadir el importe entregado por el cliente y calcular automáticamente el vuelto: efectivo recibido menos importe que corresponde cobrar en efectivo.
+- Validar que el importe entregado cubra la parte en efectivo. No calcular vuelto sobre Yape ni sobre un saldo a crédito.
+- En pagos mixtos, separar importe efectivo e importe Yape; el vuelto se calcula únicamente sobre el efectivo recibido y el sistema debe distinguir dinero recibido de importe aplicado a la venta.
+- Guardar importes aplicados y, si corresponde, efectivo entregado y vuelto como datos de la operación, con comprobante claro. No alterar el total ni los pagos registrados para simular el vuelto.
+
+### Apariencia
+- Incorporar modo día y modo noche con paleta coherente y contraste legible en todas las secciones, tablas, formularios, avisos y diálogos propios.
+- Permitir que cada usuario elija su preferencia y conservarla entre sesiones/dispositivos cuando sea posible mediante un ajuste por usuario; no afectar permisos ni datos operativos.
+
+### Historial de ventas e inventario
+- El administrador podrá consultar el historial global o filtrarlo por vendedor; cada fila y detalle identificará al vendedor responsable por nombre y código.
+- Mantener para vendedor el alcance de sus propias ventas.
+- Crear auditoría de inventario por producto que registre stock inicial, ingresos, salidas por venta, ajustes manuales y cualquier edición que cambie stock: fecha/hora, usuario responsable, tipo, cantidad anterior, variación, stock resultante y motivo/comentario.
+- La actualización de stock y su movimiento de auditoría deben ser atómicos; no inventar el stock inicial histórico que no exista en los registros actuales.
+
+### Créditos
+- Ampliar el módulo para fechas de vencimiento, fecha de pago/abono y próximo pago acordado, historial de abonos, saldo y estados pendiente/parcial/pagado/vencido.
+- Conservar los créditos y pagos existentes. Las nuevas fechas de vencimiento históricas permanecerán sin asignar cuando no haya evidencia fiable; no inventarlas.
+
+### Productos, búsqueda y escáner
+- Añadir imágenes referenciales por producto, cámara/galería, imagen predeterminada y miniaturas en ventas; conservar sincronización entre dispositivos mediante Storage.
+- La búsqueda manual debe presentar coincidencias dinámicas seleccionables conforme se escribe.
+- El escaneo de código debe identificar y agregar/dirigir directamente al producto coincidente, sin presentar una lista alternativa. Si no existe coincidencia o no hay stock, informar claramente.
+
+### Resumen de caja
+- Rediseñar exclusivamente la presentación de «Resumen de caja» con bloques claros e importes destacados. No extender el rediseño a otras tablas.
+- No cerrar ni conciliar sesiones existentes durante desarrollo o pruebas sin autorización explícita del usuario.
+
+### Método de implementación y aceptación
+1. Auditar esquema real, funciones, políticas RLS, permisos, triggers y código antes de cada migración.
+2. Preparar migraciones aditivas e idempotentes, con verificaciones previas y posteriores; nunca ejecutar bootstrap sobre el esquema existente.
+3. Mantener la lógica transaccional de ventas, pagos, movimientos y stock. Cualquier cambio de RPC debe conservar firmas compatibles o versionarse y verificarse.
+4. Implementar y probar primero en la rama de actualización y el proyecto Supabase de pruebas.
+5. Probar con roles de administrador y vendedor, casos contado/efectivo con vuelto, Yape, mixto, crédito, abonos, stock, auditoría, filtros, tema, Storage y permisos.
+6. No modificar producción, integrar a main, cerrar cajas ni desplegar hasta que el usuario revise resultados y autorice expresamente.
