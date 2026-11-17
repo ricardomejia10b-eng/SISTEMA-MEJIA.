@@ -50,7 +50,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if old.seller_code is not null
      and new.seller_code is distinct from old.seller_code then
@@ -58,7 +58,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists profiles_seller_code_immutable on public.profiles;
 create trigger profiles_seller_code_immutable
