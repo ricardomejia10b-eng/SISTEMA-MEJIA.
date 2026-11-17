@@ -370,6 +370,9 @@ begin
   if coalesce(p_cash_tendered,0) < v_cash_applied then
     raise exception 'El efectivo entregado no cubre el importe en efectivo';
   end if;
+  if v_cash_applied = 0 and (coalesce(p_cash_tendered,0) <> 0 or coalesce(p_cash_change,0) <> 0) then
+    raise exception 'No corresponde registrar efectivo entregado ni vuelto sin un pago en efectivo';
+  end if;
   if round((coalesce(p_cash_tendered,0) - v_cash_applied)::numeric,2) <> round(coalesce(p_cash_change,0)::numeric,2) then
     raise exception 'El vuelto no coincide con el efectivo entregado';
   end if;
