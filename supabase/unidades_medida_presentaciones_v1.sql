@@ -152,7 +152,7 @@ begin
   -- Mantener los IDs existentes para no romper referencias históricas.
   -- Las presentaciones omitidas se desactivan, no se eliminan.
   update public.product_units
-  set is_active = false
+  set is_active = false, is_base = false
   where product_id = p_product_id;
 
   for v_item in select value from jsonb_array_elements(p_units) loop
