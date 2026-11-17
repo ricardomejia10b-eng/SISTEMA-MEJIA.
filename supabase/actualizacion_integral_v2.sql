@@ -32,7 +32,7 @@ set search_path = public
 as $$
 begin
   if new.role = 'vendedor' and (new.seller_code is null or btrim(new.seller_code) = '') then
-    new.seller_code := 'VEN-' || upper(substr(replace(new.id::text, '-', ''), 1, 8));
+    new.seller_code := 'VEN-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
   end if;
   return new;
 end;
@@ -42,6 +42,31 @@ drop trigger if exists assign_seller_code_on_profile on public.profiles;
 create trigger assign_seller_code_on_profile
 before insert or update of role on public.profiles
 for each row execute function public.assign_seller_code();
+
+-- El código asignado es permanente: ni el vendedor ni un administrador
+-- pueden cambiarlo después de su asignación inicial.
+create or replace function public.prevent_seller_code_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if old.seller_code is not null
+     and new.seller_code is distinct from old.seller_code then
+    raise exception 'El código de vendedor es permanente y no puede modificarse';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists profiles_seller_code_immutable on public.profiles;
+create trigger profiles_seller_code_immutable
+before update of seller_code on public.profiles
+for each row execute function public.prevent_seller_code_change();
+
+revoke all on function public.assign_seller_code() from public, anon, authenticated;
+revoke all on function public.prevent_seller_code_change() from public, anon, authenticated;
 
 -- Guardar una fotografía del nombre y código del vendedor en cada venta.
 -- Así los comprobantes históricos no cambian si luego se edita el perfil.
@@ -329,6 +354,10 @@ declare
   v_cash_applied numeric(12,2) := 0;
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
+  if p_payment_type = 'credito' and p_due_date is not null and p_next_payment_date is not null
+     and p_next_payment_date < p_due_date then
+    raise exception 'La próxima fecha de pago no puede ser anterior al vencimiento';
+  end if;
   if coalesce(p_cash_tendered,0) < 0 or coalesce(p_cash_change,0) < 0 then
     raise exception 'El efectivo entregado y el vuelto no pueden ser negativos';
   end if;
