@@ -149,14 +149,23 @@ begin
     raise exception 'No se puede cambiar la unidad base después de movimientos convertidos';
   end if;
 
-  delete from public.product_units where product_id = p_product_id;
+  -- Mantener los IDs existentes para no romper referencias históricas.
+  -- Las presentaciones omitidas se desactivan, no se eliminan.
+  update public.product_units
+  set is_active = false
+  where product_id = p_product_id;
 
   for v_item in select value from jsonb_array_elements(p_units) loop
     v_name := btrim(v_item->>'unit_name');
     v_factor := (v_item->>'factor_to_base')::numeric;
     v_is_base := coalesce((v_item->>'is_base')::boolean, false);
-    insert into public.product_units(product_id, unit_name, factor_to_base, is_base)
-    values(p_product_id, v_name, v_factor, v_is_base);
+
+    insert into public.product_units(product_id, unit_name, factor_to_base, is_base, is_active)
+    values(p_product_id, v_name, v_factor, v_is_base, true)
+    on conflict (product_id, unit_name)
+    do update set factor_to_base = excluded.factor_to_base,
+                  is_base = excluded.is_base,
+                  is_active = true;
   end loop;
 
   update public.products
