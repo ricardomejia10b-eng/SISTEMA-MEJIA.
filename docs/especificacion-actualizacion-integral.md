@@ -156,3 +156,50 @@ Ejecutar `supabase/actualizacion_integral_v2.sql` únicamente en el SQL Editor d
 
 - También se incorporó al panel administrativo la consulta de sesiones y resumen de caja por vendedor, sin botones para cerrar o conciliar cajas ajenas.
 - Se agregó `supabase/verificar_actualizacion_integral_v2.sql`, un conjunto de consultas de solo lectura para comprobar códigos, fotografía de vendedor, auditoría, RLS, triggers y permisos RPC después de aplicar la migración.
+
+
+## Requisitos nuevos confirmados — 17 de noviembre de 2026
+
+Estos requisitos se incorporan al alcance de la actualización integral en la rama de pruebas. Deben implementarse sin eliminar ni alterar registros históricos y sin cambiar la rama `main` ni Supabase de producción.
+
+### Unidades de medida y presentaciones de inventario
+
+- En los formularios **Agregar producto** y **Editar producto**, incorporar el campo obligatorio **Unidad de medida**.
+- Permitir configurar unidades y presentaciones según el producto: unidad, docena, ciento; kg/g/tonelada; L/ml/galón; m/cm/mm; paquete, caja, bolsa, rollo, entre otras.
+- Cada presentación debe tener una equivalencia explícita y configurable por producto. No asumir conversiones universales: por ejemplo, un paquete puede contener 12 unidades solo si esa equivalencia fue configurada para ese producto.
+- El modelo debe distinguir la unidad base de inventario de las presentaciones de compra/venta. Las cantidades deben almacenarse con precisión suficiente y una conversión determinista a la unidad base; no redondear silenciosamente.
+- Mostrar existencias en formato compuesto cuando corresponda, por ejemplo **10 paquetes y 3 unidades**, manteniendo visible la equivalencia usada. No mostrar el total de unidades base como si fueran paquetes.
+- Ingresos, salidas por venta, ajustes manuales, ediciones e historial deben registrar cantidad y presentación originales, factor de conversión aplicado, cantidad equivalente en unidad base, usuario, fecha/hora, motivo y saldo resultante.
+- En ventas, permitir seleccionar la presentación/unidad y cantidad. El descuento de inventario debe convertirla a la unidad base usando la equivalencia del producto y validar existencias. El comprobante debe conservar la presentación vendida y su precio.
+- La creación y edición de unidades, equivalencias, stock y movimientos debe ser atómica y auditada. No migrar los stocks históricos suponiendo equivalencias que no estén configuradas; los productos existentes deben conservar su cantidad actual y recibir una unidad base inicial explícita durante una migración controlada.
+
+### Comprobante individual: PDF y WhatsApp
+
+- Conservar la impresión actual del comprobante.
+- Añadir descarga/exportación del comprobante individual como PDF.
+- Añadir una acción para compartir el PDF por WhatsApp cuando el navegador/dispositivo admita compartir archivos. Si no lo admite, ofrecer una alternativa clara para descargar el PDF y abrir WhatsApp con un mensaje preparado.
+- El comprobante debe incluir código de venta, fecha/hora, vendedor y código, cliente, productos, presentación/unidad, cantidad, precio unitario, subtotal, total, abonado, saldo, desglose de efectivo/Yape, efectivo entregado y vuelto cuando correspondan, y tipo de operación.
+- El documento debe generarse desde los datos de la venta seleccionada, sin mezclar información de otras ventas.
+
+### Estado de cuenta completo: WhatsApp y PDF
+
+- En **Créditos y abonos**, permitir compartir por WhatsApp el estado de cuenta completo de un cliente, no solo un crédito individual.
+- Incluir datos del cliente, cada crédito y su código, fecha, total original, abonos, saldo, vencimiento, próximo pago y estado.
+- Incluir el historial de todos los abonos por crédito, con fecha, importe y método de pago cuando ese dato exista.
+- Mostrar totales consolidados del cliente: deuda original, total abonado y saldo pendiente.
+- Añadir opción de exportar el estado de cuenta completo a PDF y compartirlo por WhatsApp cuando el dispositivo lo permita; ofrecer descarga y enlace de WhatsApp como alternativa compatible.
+- No inventar teléfonos, fechas ni métodos de pago históricos que no estén guardados. Si falta un dato, mostrarlo como no registrado.
+
+### Alcance visual que debe permanecer intacto
+
+- La barra existente **«Buscar por nombre o código»** en el catálogo de Productos y el botón/texto de búsqueda de imágenes deben conservarse exactamente como están. El usuario confirmó que esa búsqueda visual y funcional está correcta y pidió expresamente no modificarla.
+- Las mejoras de búsqueda dinámica solicitadas para **Ventas** se limitan al buscador de Ventas; no cambiar la presentación ni el comportamiento del buscador de Productos.
+
+### Orden de implementación y seguridad
+
+1. Auditar las columnas, restricciones, triggers, RPC y RLS reales antes de definir la migración de unidades y presentaciones. Revisar especialmente la lógica transaccional que descuenta stock y la precisión/tipo actual de las cantidades.
+2. Diseñar primero el modelo de unidad base y presentaciones por producto, con equivalencias explícitas y compatibilidad de lectura para productos existentes. No aplicar una conversión implícita a los stocks actuales.
+3. Adaptar en conjunto formularios, inventario, ajustes, ventas, comprobantes e historial; evitar una solución solo visual que no descuente correctamente.
+4. Implementar PDF/WhatsApp para comprobantes y estados de cuenta usando datos ya autorizados por RLS, sin exponer información de otros vendedores a cuentas de vendedor.
+5. Mantener el buscador de imágenes y el buscador del catálogo de Productos intactos.
+6. Validar sintaxis, migraciones, transacciones y permisos en el entorno de pruebas; luego ejecutar pruebas funcionales controladas. No tocar producción, no fusionar el PR y no cerrar ni conciliar cajas existentes sin autorización expresa.
