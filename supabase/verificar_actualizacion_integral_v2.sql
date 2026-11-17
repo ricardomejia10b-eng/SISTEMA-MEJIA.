@@ -36,8 +36,16 @@ order by movement_type;
 select
   count(*) as movimientos,
   count(*) filter (where performed_by is null) as movimientos_sin_usuario,
+  count(*) filter (
+    where performed_by is null and movement_type <> 'stock_initial'
+  ) as movimientos_operativos_sin_usuario,
   count(*) filter (where quantity_after < 0) as stocks_resultantes_negativos
 from public.inventory_movements;
+
+-- Nota: los movimientos stock_initial creados por el corte inicial de esta
+-- migración pueden tener performed_by NULL porque SQL Editor no representa
+-- a un usuario autenticado. Esos registros se identifican por su motivo
+-- explícito y no deben confundirse con movimientos operativos sin usuario.
 
 -- 5. RLS y políticas.
 select
@@ -61,6 +69,7 @@ from information_schema.triggers
 where trigger_schema='public'
   and trigger_name in (
     'assign_seller_code_on_profile',
+    'profiles_seller_code_immutable',
     'sales_seller_snapshot',
     'products_stock_audit',
     'sales_credit_status_sync'
