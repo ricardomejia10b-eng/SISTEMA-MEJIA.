@@ -114,6 +114,9 @@ begin
   if p_quantity is null or p_quantity = 0 then
     raise exception 'La cantidad debe ser distinta de cero';
   end if;
+  if round(p_quantity,6) <> p_quantity then
+    raise exception 'La cantidad ingresada admite como máximo seis decimales';
+  end if;
   if p_movement_type = 'stock_in' and p_quantity < 0 then
     raise exception 'Un ingreso de stock debe tener cantidad positiva';
   end if;
@@ -201,7 +204,7 @@ declare
   v_product public.products%rowtype;
   v_qty numeric(18,6);
   v_base_raw numeric;
-  v_qty_unit numeric(18,6);
+  v_qty_unit numeric;
   v_factor numeric(18,6);
   v_unit_row public.product_units%rowtype;
   v_unit_id uuid;
@@ -268,6 +271,9 @@ begin
     if not found then raise exception 'Uno de los productos ya no existe'; end if;
     v_qty_unit := coalesce((v_item->>'quantity_in_unit')::numeric, (v_item->>'quantity')::numeric);
     if v_qty_unit is null or v_qty_unit<=0 then raise exception 'Cantidad inválida'; end if;
+    if round(v_qty_unit,6) <> v_qty_unit then
+      raise exception 'La cantidad ingresada admite como máximo seis decimales';
+    end if;
     v_unit_id := nullif(v_item->>'unit_id','')::uuid;
     if coalesce(v_product.unit_configured,false) then
       if v_unit_id is null then raise exception 'Selecciona una presentación para %',v_product.name; end if;
