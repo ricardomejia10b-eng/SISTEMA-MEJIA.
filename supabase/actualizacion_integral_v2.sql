@@ -11,8 +11,11 @@ alter table public.profiles
   add column if not exists preferred_theme text not null default 'light';
 
 update public.profiles
-set seller_code = 'VEN-' || upper(substr(replace(id::text, '-', ''), 1, 12))
-where role = 'vendedor' and seller_code is null;
+set seller_code = case
+  when role = 'admin' then 'ADM-'
+  else 'VEN-'
+end || upper(substr(replace(id::text, '-', ''), 1, 12))
+where role in ('vendedor','admin') and seller_code is null;
 
 create unique index if not exists profiles_seller_code_uidx
   on public.profiles (seller_code)
@@ -31,8 +34,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.role = 'vendedor' and (new.seller_code is null or btrim(new.seller_code) = '') then
-    new.seller_code := 'VEN-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
+  if new.role in ('vendedor','admin') and (new.seller_code is null or btrim(new.seller_code) = '') then
+    new.seller_code := case when new.role = 'admin' then 'ADM-' else 'VEN-' end
+      || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
   end if;
   return new;
 end;
