@@ -76,3 +76,13 @@ No fusionar el PR, desplegar a producción ni ejecutar migraciones en producció
 - Desde Créditos y abonos, abrir la cuenta completa del cliente y comprobar que el PDF muestre vencimiento y próximo pago además de compras, abonos, saldo y totales.
 - Comprobar que los campos históricos no disponibles se muestren como no indicados/no registrados, sin inventar datos.
 - Repetir con una cuenta que tenga más de un crédito y varios abonos; verificar que no se mezclen clientes.
+
+
+## Lector de códigos de barras alternativo
+
+- En un navegador con `BarcodeDetector`, verificar lectura de EAN-13, EAN-8, UPC y Code 128 cuando el dispositivo los admita.
+- En un navegador sin `BarcodeDetector`, verificar la carga del lector alternativo ZXing desde CDN y el permiso de cámara HTTPS.
+- Confirmar que el escaneo en Ventas identifica y agrega directamente el producto, sin abrir una lista de coincidencias.
+- Confirmar que el escaneo en el formulario de producto completa el campo de código y detiene la cámara.
+- Probar código inexistente, producto agotado, permiso de cámara denegado y cierre manual del lector.
+- Si el CDN no está disponible, confirmar que la interfaz informa el error y permite ingresar el código manualmente.
