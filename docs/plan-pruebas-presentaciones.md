@@ -65,3 +65,14 @@ No fusionar el PR, desplegar a producción ni ejecutar migraciones en producció
 - Verificar que solo el administrador pueda consultar ventas y cajas de todos los responsables.
 - Confirmar que los abonos solo puedan registrarse para créditos del responsable o por el administrador, y que el método efectivo/QR quede reflejado en el movimiento de caja.
 - Ejecutar las pruebas con cuentas separadas de administrador y vendedor, sin cerrar cajas existentes ni alterar ventas reales.
+
+
+## Comprobantes y estados de cuenta: PDF e intercambio por WhatsApp
+
+- Desde el historial de ventas, abrir el comprobante de una venta individual y confirmar que solo incluya los datos de esa venta.
+- Verificar código, fecha, cliente, vendedor/código, productos, presentación, cantidad, precio unitario, subtotal, total, abonado, saldo, efectivo, Yape, efectivo entregado y vuelto.
+- Usar «Imprimir / Guardar como PDF» y comprobar que el documento se genere correctamente desde el diálogo del navegador.
+- Usar «Compartir por WhatsApp» y confirmar que el mensaje preparado corresponda únicamente al comprobante seleccionado.
+- Desde Créditos y abonos, abrir la cuenta completa del cliente y comprobar que el PDF muestre vencimiento y próximo pago además de compras, abonos, saldo y totales.
+- Comprobar que los campos históricos no disponibles se muestren como no indicados/no registrados, sin inventar datos.
+- Repetir con una cuenta que tenga más de un crédito y varios abonos; verificar que no se mezclen clientes.
