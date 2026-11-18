@@ -203,3 +203,15 @@ Estos requisitos se incorporan al alcance de la actualización integral en la ra
 4. Implementar PDF/WhatsApp para comprobantes y estados de cuenta usando datos ya autorizados por RLS, sin exponer información de otros vendedores a cuentas de vendedor.
 5. Mantener el buscador de imágenes y el buscador del catálogo de Productos intactos.
 6. Validar sintaxis, migraciones, transacciones y permisos en el entorno de pruebas; luego ejecutar pruebas funcionales controladas. No tocar producción, no fusionar el PR y no cerrar ni conciliar cajas existentes sin autorización expresa.
+
+
+### Avance técnico — movimientos de inventario con presentaciones (17 de noviembre de 2026)
+
+- Se añadió `supabase/inventario_presentaciones_v2.sql` a la rama. Debe aplicarse después de `actualizacion_integral_v2.sql` y `unidades_medida_presentaciones_v1.sql`, únicamente en el proyecto de pruebas.
+- La migración agrega campos de presentación, cantidad ingresada, equivalencia, variación en unidad base y saldo resultante al libro existente `inventory_movements`. No crea un historial paralelo ni modifica el stock al instalarse.
+- Se amplió el trigger de auditoría para guardar esos datos cuando el movimiento proviene de la nueva RPC `admin_record_inventory_movement`.
+- La RPC permite al administrador registrar ingresos y ajustes (+/-), valida que la presentación esté activa y pertenezca al producto, bloquea el producto durante la operación, impide stock negativo y registra el cambio mediante el trigger dentro de la misma transacción.
+- La interfaz de catálogo incorpora la acción **Movimiento**, selección de presentación, cantidad, tipo y motivo; el historial muestra presentación, equivalencia y variación en unidad base. El campo de stock queda bloqueado al editar un producto para evitar saltarse el registro de movimientos.
+- **Limitación pendiente:** `products.stock` sigue siendo INTEGER. La RPC rechaza conversiones que produzcan fracciones de unidad base; no redondea. Antes de admitir productos cuyo inventario base sea fraccionario (kg, litros, metros, etc.), habrá que diseñar una migración controlada a precisión decimal y adaptar las ventas.
+- **Pendiente de integrar:** registrar presentación y equivalencia en salidas por venta y permitir seleccionar presentación/cantidad en el carrito; los cambios actuales cubren ingresos y ajustes administrativos, no completan todavía todo el ciclo de ventas con presentaciones.
+- Esta migración y la interfaz todavía no se han ejecutado ni probado contra Supabase. No ejecutar scripts ni registrar movimientos reales hasta revisar el orden completo de migraciones y autorizar expresamente la ejecución en pruebas.
