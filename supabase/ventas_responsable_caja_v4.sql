@@ -220,7 +220,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   if p_amount is null or p_amount<=0 then raise exception 'El monto debe ser mayor que cero'; end if;
-  if p_payment_method not in ('efectivo','qr') then
+  if p_payment_method is null or p_payment_method not in ('efectivo','qr') then
     raise exception 'Para registrar el abono selecciona efectivo o QR';
   end if;
 
