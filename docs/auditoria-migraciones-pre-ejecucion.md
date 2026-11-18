@@ -123,7 +123,17 @@ G. Ejecutar las verificaciones de solo lectura y detenerse ante cualquier difere
 ## Estado actualizado de la auditoría
 
 - Revisión estática de los SQL del PR: ampliada; hay scripts alternativos y de bootstrap que requieren decisión explícita.
-- Workflow de validación estática asociado al último commit revisado: completado con conclusión `success` (run 14).
+- Workflow de validación estática asociado al commit `b8c21af1`: completado con conclusión `success` (run 16, 2026-11-17). Esta validación no comprueba la ejecución ni la compatibilidad de las migraciones SQL.
 - Comparación de ramas: 142 commits adelantados, 0 detrás; PR #1 abierto, no fusionado y GitHub informa `mergeable`.
 - Proyecto Supabase real: no inspeccionado desde este conector; no se confirma que ningún SQL se haya ejecutado.
 - No autorizar despliegue ni fusión por el resultado de validación estática: no prueba integridad de SQL ni comportamiento de base de datos.
+
+
+## Tercera revisión — 2026-11-17
+
+- Se volvió a consultar el PR #1: permanece abierto, no fusionado y con la rama de trabajo separada de `main`.
+- El workflow de validación estática del HEAD `b8c21af1c9aae214e1bcd01e36084521268114fa` terminó correctamente: run 16, conclusión `success`.
+- Se detectó una discrepancia entre documentos: `docs/especificacion-actualizacion-integral.md` contiene un registro que afirma que las etapas 1 y 2 fueron ejecutadas y verificadas por el usuario; esta auditoría no tiene evidencia de conexión directa que permita reconfirmarlo. Por seguridad, su estado operativo queda como **pendiente de verificación directa**, no como confirmación de que deban ejecutarse otra vez.
+- La revisión estática confirmó que `index.html` llama a `finalize_sale_v5` con la firma documentada y que la migración decimal define esa RPC con cantidades `numeric(18,6)`. También se confirmó que la interfaz usa `admin_configure_product_units` y `admin_record_inventory_movement`, cuyas definiciones están presentes en la cadena de migraciones revisada.
+- No hay una herramienta/conexión Supabase disponible en esta sesión. No se consultó el project ref activo, el historial real de migraciones, las políticas instaladas ni los respaldos; tampoco se ejecutó SQL ni se escribieron registros funcionales.
+- Próximo paso bloqueante: obtener acceso de solo lectura al proyecto de pruebas `vrgfwefnkrdwrtdymfin` y contrastar esquema, migraciones, RPC, triggers, RLS y grants antes de decidir si se aplica alguna migración. No ejecutar bootstrap ni repetir etapas 1 y 2 sin esa comprobación.
