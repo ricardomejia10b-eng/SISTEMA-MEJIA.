@@ -42,3 +42,14 @@ Este plan se ejecuta únicamente después de aplicar y verificar la secuencia de
 ## Condiciones de cierre
 
 No fusionar el PR, desplegar a producción ni ejecutar migraciones en producción. No borrar productos de prueba ni registros hasta que el usuario revise los resultados. No cerrar ni conciliar cajas preexistentes.
+
+
+## Verificación adicional: coherencia de cantidades y precios por presentación
+
+- Registrar una venta de 1 paquete cuando el paquete contiene 12 unidades base.
+- Confirmar que `sale_items.quantity` y `quantity_in_unit` indiquen 1 paquete, y que `unit_price` sea el precio por paquete.
+- Confirmar que `line_total = quantity × unit_price`.
+- Confirmar que `quantity_in_base` registre 12 y que el inventario disminuya exactamente 12 unidades base.
+- Repetir con cantidades fraccionarias permitidas, por ejemplo 0.5 kg, y verificar que el total, la cantidad vendida y el stock coincidan con seis decimales.
+- Confirmar que los comprobantes muestren la cantidad y el precio de la presentación vendida, además de su equivalente en unidad base.
+- No realizar estas pruebas en producción ni usar datos reales; requieren autorización para operaciones que escriban ventas o stock.
