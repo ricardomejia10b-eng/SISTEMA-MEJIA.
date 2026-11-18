@@ -4,6 +4,9 @@
 -- Aplicar solo en Supabase de PRUEBAS. No altera ventas históricas.
 begin;
 
+alter table public.sale_items
+  add column if not exists base_unit_snapshot text;
+
 create or replace function public.finalize_sale_v5(
   p_customer_id uuid,
   p_customer_name text,
@@ -212,10 +215,10 @@ begin
     v_line=v_unit*v_qty;
     insert into public.sale_items(
       sale_id,product_id,product_name,quantity,unit_price,line_total,
-      unit_id,unit_name_snapshot,quantity_in_unit,quantity_in_base,conversion_factor_snapshot
+      unit_id,unit_name_snapshot,base_unit_snapshot,quantity_in_unit,quantity_in_base,conversion_factor_snapshot
     ) values(
       v_sale,v_product.id,v_product.name,v_qty,v_unit*v_factor,v_line,
-      v_unit_id,v_unit_name,v_qty_unit,v_qty,v_factor
+      v_unit_id,v_unit_name,coalesce(v_product.base_unit,'unidad'),v_qty_unit,v_qty,v_factor
     );
     perform set_config('app.inventory_sale_id',v_sale::text,true);
     perform set_config('app.inventory_reason','Salida por venta',true);
@@ -260,4 +263,4 @@ commit;
 -- select pg_get_function_identity_arguments('public.finalize_sale_v5'::regproc);
 -- select column_name,data_type from information_schema.columns
 -- where table_schema='public' and table_name='sale_items'
--- and column_name in ('unit_id','unit_name_snapshot','quantity_in_unit','quantity_in_base','conversion_factor_snapshot');
+-- and column_name in ('unit_id','unit_name_snapshot','base_unit_snapshot','quantity_in_unit','quantity_in_base','conversion_factor_snapshot');
