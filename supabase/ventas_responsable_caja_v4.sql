@@ -226,7 +226,7 @@ begin
 
   select * into s from public.sales where id=p_sale_id for update;
   if not found then raise exception 'Venta no encontrada'; end if;
-  if not public.is_admin() and s.seller_id<>auth.uid() then
+  if not public.is_admin() and coalesce(s.seller_id,s.created_by)<>auth.uid() then
     raise exception 'No tienes permiso para registrar este abono';
   end if;
   if s.payment_type<>'credito' then raise exception 'La venta no es al crédito'; end if;
@@ -268,7 +268,7 @@ $function$;
 drop policy if exists "sales read own or admin" on public.sales;
 create policy "sales read responsible or admin"
 on public.sales for select to authenticated
-using (seller_id=auth.uid() or public.is_admin());
+using (coalesce(seller_id,created_by)=auth.uid() or public.is_admin());
 
 -- Los detalles y abonos siguen la visibilidad de la venta responsable.
 drop policy if exists "items read sale access" on public.sale_items;
