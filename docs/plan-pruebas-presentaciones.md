@@ -53,3 +53,15 @@ No fusionar el PR, desplegar a producción ni ejecutar migraciones en producció
 - Repetir con cantidades fraccionarias permitidas, por ejemplo 0.5 kg, y verificar que el total, la cantidad vendida y el stock coincidan con seis decimales.
 - Confirmar que los comprobantes muestren la cantidad y el precio de la presentación vendida, además de su equivalente en unidad base.
 - No realizar estas pruebas en producción ni usar datos reales; requieren autorización para operaciones que escriban ventas o stock.
+
+
+## Verificación de responsables, códigos y permisos RLS
+
+- Confirmar que cada perfil con rol `vendedor` tenga código `VEN-...` y cada perfil `admin` que pueda registrar ventas tenga código `ADM-...`.
+- Confirmar unicidad de `profiles.seller_code` y que los códigos no puedan modificarse después de asignados.
+- Con sesión de vendedor, consultar ventas propias y comprobar que las ventas de otros responsables no aparezcan.
+- Con sesión de vendedor, consultar `sale_items` y `payments` de ventas propias y comprobar que no pueda leer detalles o abonos de otros responsables.
+- Verificar que ventas históricas sin `seller_id` sigan siendo visibles para su creador mediante `created_by`, sin exponerlas a otros vendedores.
+- Verificar que solo el administrador pueda consultar ventas y cajas de todos los responsables.
+- Confirmar que los abonos solo puedan registrarse para créditos del responsable o por el administrador, y que el método efectivo/QR quede reflejado en el movimiento de caja.
+- Ejecutar las pruebas con cuentas separadas de administrador y vendedor, sin cerrar cajas existentes ni alterar ventas reales.
