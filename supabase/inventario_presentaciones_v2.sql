@@ -108,7 +108,7 @@ begin
   if auth.uid() is null or not public.is_admin() then
     raise exception 'Solo el administrador puede registrar movimientos de inventario';
   end if;
-  if p_movement_type not in ('stock_in','adjustment') then
+  if p_movement_type is null or p_movement_type not in ('stock_in','adjustment') then
     raise exception 'Tipo de movimiento inválido';
   end if;
   if p_quantity is null or p_quantity = 0 then
