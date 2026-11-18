@@ -215,3 +215,17 @@ Estos requisitos se incorporan al alcance de la actualización integral en la ra
 - **Limitación pendiente:** `products.stock` sigue siendo INTEGER. La RPC rechaza conversiones que produzcan fracciones de unidad base; no redondea. Antes de admitir productos cuyo inventario base sea fraccionario (kg, litros, metros, etc.), habrá que diseñar una migración controlada a precisión decimal y adaptar las ventas.
 - **Pendiente de integrar:** registrar presentación y equivalencia en salidas por venta y permitir seleccionar presentación/cantidad en el carrito; los cambios actuales cubren ingresos y ajustes administrativos, no completan todavía todo el ciclo de ventas con presentaciones.
 - Esta migración y la interfaz todavía no se han ejecutado ni probado contra Supabase. No ejecutar scripts ni registrar movimientos reales hasta revisar el orden completo de migraciones y autorizar expresamente la ejecución en pruebas.
+
+
+### Avance técnico — ventas con presentación (17 de noviembre de 2026)
+
+- Se añadió `supabase/ventas_presentaciones_v5.sql`, que crea la RPC `finalize_sale_v5` conservando el flujo transaccional de `finalize_sale_v4`: responsable/caja, pagos, efectivo entregado, vuelto, crédito y fechas.
+- Para productos con presentaciones configuradas, la RPC exige una presentación activa perteneciente al producto; obtiene el factor desde la base de datos (no confía en el factor enviado por el navegador), convierte cantidad ingresada a unidades base y valida stock antes de crear la venta.
+- Se mantiene `sale_items.quantity` como cantidad en unidad base entera para compatibilidad; además se guardan `unit_id`, `unit_name_snapshot`, `base_unit_snapshot`, `quantity_in_unit`, `quantity_in_base` y `conversion_factor_snapshot`. El comprobante y la cuenta del cliente muestran la cantidad y presentación originales.
+- El precio de presentación se calcula proporcionalmente multiplicando el precio actual de la unidad base por el factor configurado; el subtotal conserva el mismo importe económico que la conversión a unidades base. Si se requiere precio independiente por presentación, será una ampliación separada del modelo de precios.
+- El descuento de stock establece el contexto de venta para que el trigger de auditoría relacione el movimiento con el código/ID de la venta y guarde presentación, cantidad y equivalencia.
+- La interfaz de ventas ahora permite seleccionar presentación, introducir cantidad decimal, visualizar equivalencia y stock compuesto, separar en el carrito líneas del mismo producto cuando usan presentaciones distintas, validar el stock total en unidad base y enviar los datos a `finalize_sale_v5`.
+- Se conservan las ventas históricas: los campos nuevos quedan nulos para líneas antiguas y la interfaz mantiene la lectura alternativa de `quantity`.
+- Se comprobó la sintaxis JavaScript del script embebido de `index.html` mediante compilación estática. Esto no valida el SQL en PostgreSQL ni sustituye pruebas en navegador/Supabase.
+- **Pendiente:** revisar la secuencia completa de migraciones y ejecutar validación PostgreSQL en el proyecto de pruebas; probar casos con unidad base, paquete, más de una presentación en una venta, stock insuficiente, equivalencia fraccionaria y auditoría. No se ha ejecutado ninguna migración ni registrado ventas de prueba.
+- **Limitación vigente:** el stock sigue siendo entero; las cantidades que no conviertan a unidades base enteras se rechazan. Los productos basados en kg/litros/metros con fracciones requieren migración posterior a tipo decimal.
