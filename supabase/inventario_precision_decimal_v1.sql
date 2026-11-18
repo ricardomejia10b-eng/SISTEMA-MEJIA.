@@ -429,18 +429,30 @@ grant execute on function public.finalize_sale_v5(uuid,text,text,text,text,jsonb
 
 -- Deshabilitar la RPC anterior que solo descuenta cantidades enteras y no
 -- guarda la presentación. La aplicación usa finalize_sale_v5 desde esta fase.
-revoke all on function public.finalize_sale_v4(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date,uuid)
-  from public, anon, authenticated;
-revoke all on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)
-  from public, anon, authenticated;
-revoke all on function public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb)
-  from public, anon, authenticated;
-revoke all on function public.admin_set_product_stock(uuid,integer,text)
-  from public, anon, authenticated;
-revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid)
-  from public, anon, authenticated;
-revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,text,uuid)
-  from public, anon, authenticated;
+-- Deshabilitar RPC antiguas solo si existen en este entorno. Así el script
+-- sigue siendo compatible con instalaciones que no aplicaron todas las etapas heredadas.
+do $revoke_legacy$
+begin
+  if to_regprocedure('public.finalize_sale_v4(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date,uuid)') is not null then
+    execute 'revoke all on function public.finalize_sale_v4(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date,uuid) from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)') is not null then
+    execute 'revoke all on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date) from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb)') is not null then
+    execute 'revoke all on function public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb) from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.admin_set_product_stock(uuid,integer,text)') is not null then
+    execute 'revoke all on function public.admin_set_product_stock(uuid,integer,text) from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid)') is not null then
+    execute 'revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid) from public, anon, authenticated';
+  end if;
+  if to_regprocedure('public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,text,uuid)') is not null then
+    execute 'revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,text,uuid) from public, anon, authenticated';
+  end if;
+end
+$revoke_legacy$;
 
 commit;
 
