@@ -277,7 +277,7 @@ on public.sale_items for select to authenticated
 using (
   exists(select 1 from public.sales s
          where s.id=sale_items.sale_id
-           and (s.seller_id=auth.uid() or public.is_admin()))
+           and (coalesce(s.seller_id,s.created_by)=auth.uid() or public.is_admin()))
 );
 
 drop policy if exists "payments read sale access" on public.payments;
@@ -286,7 +286,7 @@ on public.payments for select to authenticated
 using (
   exists(select 1 from public.sales s
          where s.id=payments.sale_id
-           and (s.seller_id=auth.uid() or public.is_admin()))
+           and (coalesce(s.seller_id,s.created_by)=auth.uid() or public.is_admin()))
 );
 
 -- La consulta de movimientos sigue el seller_id asignado a la caja.
