@@ -204,6 +204,7 @@ declare
   v_item jsonb;
   v_product public.products%rowtype;
   v_qty numeric(18,6);
+  v_requested_stock numeric(18,6);
   v_base_raw numeric;
   v_qty_unit numeric;
   v_factor numeric(18,6);
@@ -294,12 +295,29 @@ begin
     end if;
     v_qty := round(v_base_raw,6);
     if v_qty<=0 then raise exception 'La cantidad equivalente debe ser mayor que cero'; end if;
-    if (select coalesce(sum(((coalesce(x->>'quantity_in_unit',x->>'quantity'))::numeric *
-          (case when nullif(x->>'unit_id','') is null then 1 else
-            (select pu.factor_to_base from public.product_units pu
-             where pu.id=(x->>'unit_id')::uuid and pu.product_id=v_product.id and pu.is_active=true) end)),0)
-        from jsonb_array_elements(p_items) as a(x)
-        where x->>'product_id'=v_product.id::text)>v_product.stock then
+    -- Sumar la demanda total del producto en unidad base.
+    -- COALESCE se aplica al SUM completo para cubrir carritos sin filas coincidentes.
+    select coalesce(
+      sum(
+        (coalesce(x->>'quantity_in_unit',x->>'quantity'))::numeric
+        * case
+            when nullif(x->>'unit_id','') is null then 1
+            else (
+              select pu.factor_to_base
+              from public.product_units pu
+              where pu.id=(x->>'unit_id')::uuid
+                and pu.product_id=v_product.id
+                and pu.is_active=true
+            )
+          end
+      ),
+      0
+    )
+    into v_requested_stock
+    from jsonb_array_elements(p_items) as a(x)
+    where x->>'product_id'=v_product.id::text;
+
+    if v_requested_stock > v_product.stock then
       raise exception 'Stock insuficiente para %',v_product.name;
     end if;
     v_unit=case when p_sale_type='mayorista'
@@ -368,8 +386,9 @@ begin
       else null end
   ) returning id into v_sale;
 
-  -- sale_items.quantity y unit_price representan la misma presentación vendida.
-  -- quantity_in_base conserva aparte el equivalente usado para descontar stock.
+  -- Compatibilidad histórica: sale_items.quantity conserva la cantidad en unidad base.
+  -- quantity_in_unit guarda la presentación vendida; quantity_in_base conserva el equivalente decimal.
+  -- unit_price conserva el precio unitario de la presentación (precio base × factor).
   for v_item in select value from jsonb_array_elements(p_items) loop
     select * into v_product from public.products
     where id=(v_item->>'product_id')::uuid for update;
@@ -397,7 +416,7 @@ begin
       sale_id,product_id,product_name,quantity,unit_price,line_total,
       unit_id,unit_name_snapshot,base_unit_snapshot,quantity_in_unit,quantity_in_base,conversion_factor_snapshot
     ) values(
-      v_sale,v_product.id,v_product.name,v_qty_unit,v_unit*v_factor,v_line,
+      v_sale,v_product.id,v_product.name,v_qty,v_unit*v_factor,v_line,
       v_unit_id,v_unit_name,coalesce(v_product.base_unit,'unidad'),v_qty_unit,v_qty,v_factor
     );
     perform set_config('app.inventory_sale_id',v_sale::text,true);
