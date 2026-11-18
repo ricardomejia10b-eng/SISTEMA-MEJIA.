@@ -85,7 +85,7 @@ declare
   v_base_count integer;
   v_item jsonb;
   v_name text;
-  v_factor numeric(18,6);
+  v_factor numeric;
   v_is_base boolean;
 begin
   if auth.uid() is null or not public.is_admin() then
@@ -122,6 +122,7 @@ begin
     from jsonb_array_elements(p_units) x
     where nullif(btrim(x->>'unit_name'), '') is null
        or coalesce((x->>'factor_to_base')::numeric, 0) <= 0
+       or round((x->>'factor_to_base')::numeric,6) <> (x->>'factor_to_base')::numeric
   ) then
     raise exception 'Cada presentación requiere nombre y equivalencia positiva';
   end if;
@@ -158,6 +159,9 @@ begin
   for v_item in select value from jsonb_array_elements(p_units) loop
     v_name := btrim(v_item->>'unit_name');
     v_factor := (v_item->>'factor_to_base')::numeric;
+    if round(v_factor,6) <> v_factor then
+      raise exception 'La equivalencia de cada presentación admite como máximo seis decimales';
+    end if;
     v_is_base := coalesce((v_item->>'is_base')::boolean, false);
 
     insert into public.product_units(product_id, unit_name, factor_to_base, is_base, is_active)
