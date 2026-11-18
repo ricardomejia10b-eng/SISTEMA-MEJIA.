@@ -295,7 +295,16 @@ using (
 drop policy if exists "cash movements read own admin" on public.cash_movements;
 create policy "cash movements read responsible or admin"
 on public.cash_movements for select to authenticated
-using (seller_id=auth.uid() or public.is_admin());
+using (
+  seller_id=auth.uid()
+  or exists (
+    select 1
+    from public.cash_sessions cs
+    where cs.id=cash_movements.cash_session_id
+      and cs.seller_id=auth.uid()
+  )
+  or public.is_admin()
+);
 
 revoke all on function public.finalize_sale_v4(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date,uuid)
   from public, anon;
