@@ -474,6 +474,9 @@ begin
   if to_regprocedure('public.admin_set_product_stock(uuid,integer,text)') is not null then
     execute 'revoke all on function public.admin_set_product_stock(uuid,integer,text) from public, anon, authenticated';
   end if;
+  if to_regprocedure('public.finalize_sale(uuid,text,text,jsonb,jsonb)') is not null then
+    execute 'revoke all on function public.finalize_sale(uuid,text,text,jsonb,jsonb) from public, anon, authenticated';
+  end if;
   if to_regprocedure('public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid)') is not null then
     execute 'revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid) from public, anon, authenticated';
   end if;
