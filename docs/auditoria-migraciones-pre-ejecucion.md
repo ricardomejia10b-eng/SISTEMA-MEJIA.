@@ -137,3 +137,23 @@ G. Ejecutar las verificaciones de solo lectura y detenerse ante cualquier difere
 - La revisión estática confirmó que `index.html` llama a `finalize_sale_v5` con la firma documentada y que la migración decimal define esa RPC con cantidades `numeric(18,6)`. También se confirmó que la interfaz usa `admin_configure_product_units` y `admin_record_inventory_movement`, cuyas definiciones están presentes en la cadena de migraciones revisada.
 - No hay una herramienta/conexión Supabase disponible en esta sesión. No se consultó el project ref activo, el historial real de migraciones, las políticas instaladas ni los respaldos; tampoco se ejecutó SQL ni se escribieron registros funcionales.
 - Próximo paso bloqueante: obtener acceso de solo lectura al proyecto de pruebas `vrgfwefnkrdwrtdymfin` y contrastar esquema, migraciones, RPC, triggers, RLS y grants antes de decidir si se aplica alguna migración. No ejecutar bootstrap ni repetir etapas 1 y 2 sin esa comprobación.
+
+
+## Cuarta revisión — permisos y validaciones de RPC
+
+### Corrección estática aplicada
+- En `supabase/ventas_responsable_caja_v4.sql`, `register_payment` ahora rechaza explícitamente `p_payment_method IS NULL`. Antes, la condición `p_payment_method NOT IN (...)` no rechazaba NULL por la lógica ternaria de SQL; el resultado dependía de la restricción NOT NULL de la columna y podía producir un error menos claro o permitir un valor nulo si la columna lo admitía.
+- Cambio preparado en la rama de actualización; requiere aplicar la migración correspondiente en el entorno de pruebas antes de que tenga efecto en la base. No se ha ejecutado.
+
+### Riesgos que siguen pendientes de comprobación real
+1. Las políticas RLS nuevas sustituyen políticas con nombres concretos. PostgreSQL combina políticas permisivas mediante OR; si el proyecto tiene políticas SELECT adicionales antiguas o creadas manualmente, podrían ampliar la visibilidad. Se debe inventariar `pg_policies` en las cuatro tablas sensibles (`sales`, `sale_items`, `payments`, `cash_movements`) y no asumir que los nombres del bootstrap son los únicos.
+2. Las funciones `SECURITY DEFINER` revisadas verifican `auth.uid()` y, en operaciones sensibles, rol/responsable. Aun así, se debe comprobar en la base los propietarios de funciones, `search_path`, privilegios efectivos de `anon`/ `authenticated` y la firma instalada de cada RPC.
+3. `get_cash_session_summary` valida que la sesión pertenezca al usuario o que el usuario sea administrador; esa validación está presente en el SQL de etapa 2. Su disponibilidad efectiva depende de que esa definición sea la instalada.
+4. `admin_configure_product_units` y `admin_record_inventory_movement` verifican rol administrador dentro de la función, además de restringir EXECUTE a usuarios autenticados. La comprobación final debe incluir llamadas negativas con sesión vendedor, sin modificar datos.
+5. `register_payment` verifica que el abono corresponda a una venta de crédito del responsable o que el usuario sea admin, y exige caja abierta del responsable de la venta. La corrección NULL descrita arriba endurece la validación del método de pago.
+
+### Estado de esta ronda
+- Revisión estática de las definiciones de RPC y políticas del PR: ampliada.
+- Corrección SQL de validación de método de abono NULL: aplicada en la rama, pendiente de validación automatizada y ejecución en pruebas.
+- No se han ejecutado operaciones de escritura en Supabase ni pruebas de ventas/abonos/inventario.
+- No se declara aprobada la seguridad hasta comprobar las políticas y privilegios efectivos del proyecto de pruebas.
