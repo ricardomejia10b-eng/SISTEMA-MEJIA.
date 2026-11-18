@@ -326,7 +326,7 @@ begin
       next_payment_date = p_next_payment_date
   where id = p_sale_id
     and payment_type = 'credito'
-    and (created_by = auth.uid() or public.is_admin());
+    and (coalesce(seller_id,created_by) = auth.uid() or public.is_admin());
   if not found then raise exception 'Crédito no encontrado o no tienes permiso para modificarlo'; end if;
 end;
 $$;
