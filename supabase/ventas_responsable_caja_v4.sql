@@ -232,8 +232,10 @@ begin
   if s.payment_type<>'credito' then raise exception 'La venta no es al crédito'; end if;
   if p_amount>s.total-s.paid_amount then raise exception 'El abono supera el saldo pendiente'; end if;
 
+  -- Para ventas históricas sin seller_id, el responsable se determina por created_by.
+  -- El abono se registra en la caja abierta de ese responsable, no en la del usuario que lo registra.
   select id into v_cash from public.cash_sessions
-  where seller_id=s.seller_id and status='open'
+  where seller_id=coalesce(s.seller_id,s.created_by) and status='open'
   order by opened_at desc limit 1 for update;
   if v_cash is null then
     raise exception 'El responsable de la venta no tiene una caja abierta para recibir el abono';
@@ -253,7 +255,7 @@ begin
     cash_session_id,seller_id,movement_type,payment_method,amount,sale_id,payment_id,description
   )
   values(
-    v_cash,s.seller_id,'credit_payment',p_payment_method,p_amount,p_sale_id,payment_id,
+    v_cash,coalesce(s.seller_id,s.created_by),'credit_payment',p_payment_method,p_amount,p_sale_id,payment_id,
     coalesce(nullif(trim(p_note),''),'Abono de crédito')
   );
 
