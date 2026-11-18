@@ -368,6 +368,8 @@ begin
       else null end
   ) returning id into v_sale;
 
+  -- sale_items.quantity y unit_price representan la misma presentación vendida.
+  -- quantity_in_base conserva aparte el equivalente usado para descontar stock.
   for v_item in select value from jsonb_array_elements(p_items) loop
     select * into v_product from public.products
     where id=(v_item->>'product_id')::uuid for update;
@@ -395,7 +397,7 @@ begin
       sale_id,product_id,product_name,quantity,unit_price,line_total,
       unit_id,unit_name_snapshot,base_unit_snapshot,quantity_in_unit,quantity_in_base,conversion_factor_snapshot
     ) values(
-      v_sale,v_product.id,v_product.name,v_qty,v_unit*v_factor,v_line,
+      v_sale,v_product.id,v_product.name,v_qty_unit,v_unit*v_factor,v_line,
       v_unit_id,v_unit_name,coalesce(v_product.base_unit,'unidad'),v_qty_unit,v_qty,v_factor
     );
     perform set_config('app.inventory_sale_id',v_sale::text,true);
