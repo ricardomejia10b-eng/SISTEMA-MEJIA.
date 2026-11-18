@@ -431,6 +431,16 @@ grant execute on function public.finalize_sale_v5(uuid,text,text,text,text,jsonb
 -- guarda la presentación. La aplicación usa finalize_sale_v5 desde esta fase.
 revoke all on function public.finalize_sale_v4(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date,uuid)
   from public, anon, authenticated;
+revoke all on function public.finalize_sale_v3(uuid,text,text,text,text,jsonb,jsonb,numeric,numeric,date,date)
+  from public, anon, authenticated;
+revoke all on function public.finalize_sale_v2(uuid,text,text,text,text,jsonb,jsonb)
+  from public, anon, authenticated;
+revoke all on function public.admin_set_product_stock(uuid,integer,text)
+  from public, anon, authenticated;
+revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,numeric,text,uuid)
+  from public, anon, authenticated;
+revoke all on function public.finalize_sale(jsonb,uuid,text,text,text,numeric,numeric,text,uuid)
+  from public, anon, authenticated;
 
 commit;
 
