@@ -10,7 +10,8 @@ alter table public.products
   alter column stock type numeric(18,6) using stock::numeric;
 
 alter table public.sale_items
-  alter column quantity type numeric(18,6) using quantity::numeric;
+  alter column quantity type numeric(18,6) using quantity::numeric,
+  alter column unit_price type numeric(12,6) using unit_price::numeric;
 
 alter table public.inventory_movements
   alter column quantity_before type numeric(18,6) using quantity_before::numeric,
