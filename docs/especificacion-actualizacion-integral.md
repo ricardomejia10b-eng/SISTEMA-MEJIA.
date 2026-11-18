@@ -245,3 +245,5 @@ Estos requisitos se incorporan al alcance de la actualización integral en la ra
 
 - Se añadió `supabase/verificar_presentaciones_y_ventas_v1.sql`, un conjunto de consultas de solo lectura para revisar tipos decimales, presentaciones activas, snapshots históricos, movimientos auditados, RLS, triggers y permisos de las RPC nuevas/antiguas.
 - Las equivalencias, cantidades de presentación y cantidades base quedan limitadas a seis decimales. Tanto la configuración de presentaciones como las RPC de ingreso y venta rechazan valores que excedan esa precisión, sin redondeo silencioso.
+
+- Se añadió `docs/plan-pruebas-presentaciones.md` con escenarios controlados para unidad base, paquetes/cajas, peso/volumen fraccionario, ajustes, stock insuficiente, precisión, permisos, auditoría, caja/crédito y preservación histórica. Se ejecutará únicamente en el entorno de pruebas y con productos/caja exclusivos de prueba.
