@@ -76,3 +76,54 @@ Los archivos contienen actualizaciones de códigos, snapshots de responsables, p
 - Migraciones ejecutadas: ninguna confirmada.
 - Ventas, stock, créditos y cajas modificados por esta auditoría: ninguno.
 - PR fusionado / producción: no autorizado.
+
+
+## Segunda revisión: scripts adicionales encontrados en el PR
+
+La comparación completa del PR muestra otros archivos SQL que no forman parte de la secuencia candidata anterior. No se deben ignorar:
+
+- `supabase/actualizacion_integral.sql`
+- `supabase/actualizacion_integral_ventas_inventario.sql`
+- `supabase/bootstrap_entorno_pruebas.sql`
+- `supabase/seguridad_entorno_pruebas.sql`
+- `supabase/correccion_codigos_responsables.sql`
+- `supabase/verificar_entorno_pruebas.sql`
+- `supabase/verificar_actualizacion_integral_v2.sql`
+
+### Bloqueos nuevos identificados
+
+1. **Hay scripts de instalación alternativos.** `actualizacion_integral.sql` y `actualizacion_integral_ventas_inventario.sql` definen versiones propias de `finalize_sale` y modifican columnas de ventas, pagos y productos. No deben ejecutarse junto con otras etapas sin comparar sus firmas y propósito; podrían sobrescribir una RPC o esquema esperado por el código actual.
+
+2. **El bootstrap no es una migración para una base con datos.** `bootstrap_entorno_pruebas.sql` crea el esquema inicial, perfiles, productos, ventas, pagos, cajas y funciones. Es únicamente para crear un proyecto de pruebas vacío. No debe ejecutarse sobre la base actual ni sobre producción.
+
+3. **La seguridad tiene firmas concretas.** `seguridad_entorno_pruebas.sql` revoca y concede EXECUTE sobre firmas específicas de funciones, incluidas versiones antiguas de `finalize_sale`. Si esas firmas no coinciden exactamente con las instaladas, puede fallar o dejar permisos distintos de los esperados. Debe ajustarse al inventario real de funciones y al RPC final que use la aplicación.
+
+4. **La corrección de códigos actualiza datos existentes.** `correccion_codigos_responsables.sql` ejecuta un UPDATE sobre perfiles y crea una función de asignación de códigos. Antes de ejecutarlo, hay que medir cuántos perfiles serían afectados, detectar códigos duplicados y comprobar que no sobrescribe identificadores válidos.
+
+5. **Las consultas de verificación son de solo lectura.** `verificar_entorno_pruebas.sql` y `verificar_actualizacion_integral_v2.sql` deben ejecutarse primero para inspeccionar el entorno, siempre que sus consultas sean compatibles con el esquema presente. La consulta de presentaciones se ejecuta después de instalar esas tablas y funciones.
+
+## Orden de trabajo revisado
+
+No se declara todavía un orden SQL definitivo. El procedimiento seguro es:
+
+A. Identificar si el proyecto ya tiene esquema y datos. Si está vacío, evaluar el bootstrap como instalación inicial aislada. Si ya tiene datos, excluir el bootstrap.
+
+B. Ejecutar primero las consultas de verificación compatibles y obtener inventario de tablas, columnas, funciones, triggers, políticas y versiones de migración.
+
+C. Elegir una sola ruta de migración. No mezclar `actualizacion_integral.sql` ni `actualizacion_integral_ventas_inventario.sql` con las etapas incrementales hasta demostrar que no duplican o reemplazan las mismas RPC.
+
+D. Comparar las firmas reales con las que revoca/concede `seguridad_entorno_pruebas.sql`; ajustar permisos para dejar solo el RPC final compatible con la interfaz.
+
+E. Evaluar `correccion_codigos_responsables.sql` con conteos previos y respaldo de perfiles.
+
+F. Aplicar las etapas incrementales de unidades, inventario, ventas y precisión decimal solo después de confirmar sus precondiciones y que no hayan sido instaladas previamente.
+
+G. Ejecutar las verificaciones de solo lectura y detenerse ante cualquier diferencia.
+
+## Estado actualizado de la auditoría
+
+- Revisión estática de los SQL del PR: ampliada; hay scripts alternativos y de bootstrap que requieren decisión explícita.
+- Workflow de validación estática asociado al último commit revisado: completado con conclusión `success` (run 14).
+- Comparación de ramas: 142 commits adelantados, 0 detrás; PR #1 abierto, no fusionado y GitHub informa `mergeable`.
+- Proyecto Supabase real: no inspeccionado desde este conector; no se confirma que ningún SQL se haya ejecutado.
+- No autorizar despliegue ni fusión por el resultado de validación estática: no prueba integridad de SQL ni comportamiento de base de datos.
