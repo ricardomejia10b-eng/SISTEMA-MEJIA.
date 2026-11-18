@@ -151,6 +151,7 @@ begin
 
   v_before := v_product.stock;
   v_after := v_before + v_delta;
+  perform set_config('app.inventory_sale_id', '', true);
   perform set_config('app.inventory_reason', btrim(p_reason), true);
   perform set_config('app.inventory_unit_name', v_unit.unit_name, true);
   perform set_config('app.inventory_quantity_in_unit', p_quantity::text, true);
