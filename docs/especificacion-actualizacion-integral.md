@@ -229,3 +229,15 @@ Estos requisitos se incorporan al alcance de la actualización integral en la ra
 - Se comprobó la sintaxis JavaScript del script embebido de `index.html` mediante compilación estática. Esto no valida el SQL en PostgreSQL ni sustituye pruebas en navegador/Supabase.
 - **Pendiente:** revisar la secuencia completa de migraciones y ejecutar validación PostgreSQL en el proyecto de pruebas; probar casos con unidad base, paquete, más de una presentación en una venta, stock insuficiente, equivalencia fraccionaria y auditoría. No se ha ejecutado ninguna migración ni registrado ventas de prueba.
 - **Limitación vigente:** el stock sigue siendo entero; las cantidades que no conviertan a unidades base enteras se rechazan. Los productos basados en kg/litros/metros con fracciones requieren migración posterior a tipo decimal.
+
+
+### Avance técnico — precisión decimal para unidades fraccionarias (17 de noviembre de 2026)
+
+- Se añadió `supabase/inventario_precision_decimal_v1.sql`. Convierte `products.stock`, `sale_items.quantity` y las cantidades principales de `inventory_movements` de entero a `numeric(18,6)`; los valores históricos enteros se convierten exactamente, sin recalcular ni alterar su valor.
+- También amplía `sale_items.unit_price` a `numeric(12,6)` para conservar el precio proporcional de presentaciones pequeñas.
+- Reemplaza la RPC de movimientos de inventario para admitir cantidades fraccionarias en la unidad base y mantiene validación de stock no negativo, bloqueo de producto, motivo y auditoría.
+- Reemplaza `finalize_sale_v5` para descontar cantidades decimales con precisión de hasta seis decimales. Las conversiones que excedan esa precisión se rechazan explícitamente.
+- La interfaz permite introducir stock y cantidades de venta con hasta seis decimales; el carrito valida el total reservado en unidad base. La presentación base se selecciona inicialmente, aunque se puede elegir otra.
+- La migración revoca las RPC antiguas de venta y ajuste de stock que pudieran permitir operaciones sin el nuevo detalle de presentación; las revocaciones de funciones heredadas opcionales se ejecutan solo si dichas funciones existen.
+- **Orden requerido antes de aplicar en pruebas:** completar primero las migraciones estructurales y de caja necesarias (`actualizacion_integral_etapa2.sql`, `actualizacion_integral_v2.sql`, `ventas_responsable_caja_v4.sql`), después `unidades_medida_presentaciones_v1.sql`, `inventario_presentaciones_v2.sql`, `ventas_presentaciones_v5.sql` y finalmente `inventario_precision_decimal_v1.sql`. Debe verificarse el estado real del proyecto de pruebas y el orden exacto antes de ejecutar.
+- **Sin ejecución todavía:** no se ha aplicado ninguna de estas migraciones en Supabase ni se han hecho ventas, ajustes o cambios de stock de prueba. La sintaxis JavaScript se valida estáticamente; las migraciones SQL todavía requieren validación en PostgreSQL de pruebas antes de cualquier operación funcional.
