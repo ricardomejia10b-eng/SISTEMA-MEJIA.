@@ -86,3 +86,11 @@ No fusionar el PR, desplegar a producción ni ejecutar migraciones en producció
 - Confirmar que el escaneo en el formulario de producto completa el campo de código y detiene la cámara.
 - Probar código inexistente, producto agotado, permiso de cámara denegado y cierre manual del lector.
 - Si el CDN no está disponible, confirmar que la interfaz informa el error y permite ingresar el código manualmente.
+
+
+## Caja y movimientos históricos por sesión responsable
+
+- Con sesión de vendedor, consultar movimientos asociados a su propia caja aunque el movimiento histórico no tenga `seller_id`, verificando la relación por `cash_session_id` y el responsable de `cash_sessions`.
+- Confirmar que el vendedor no pueda consultar movimientos de cajas de otros responsables.
+- Con sesión de administrador, confirmar acceso a movimientos de todas las cajas.
+- Confirmar que la política RLS no dependa únicamente del campo `cash_movements.seller_id` cuando la sesión ya identifica al responsable.
