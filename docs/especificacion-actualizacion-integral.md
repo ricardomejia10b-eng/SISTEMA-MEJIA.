@@ -247,3 +247,40 @@ Estos requisitos se incorporan al alcance de la actualización integral en la ra
 - Las equivalencias, cantidades de presentación y cantidades base quedan limitadas a seis decimales. Tanto la configuración de presentaciones como las RPC de ingreso y venta rechazan valores que excedan esa precisión, sin redondeo silencioso.
 
 - Se añadió `docs/plan-pruebas-presentaciones.md` con escenarios controlados para unidad base, paquetes/cajas, peso/volumen fraccionario, ajustes, stock insuficiente, precisión, permisos, auditoría, caja/crédito y preservación histórica. Se ejecutará únicamente en el entorno de pruebas y con productos/caja exclusivos de prueba.
+
+
+## Implementación — cuenta global de créditos por cliente (20 de noviembre de 2026)
+
+Se añadió a la rama `actualizacion-integral-sistema-mejia` la migración `supabase/creditos_cuenta_global_v1.sql` y se aplicó exclusivamente al proyecto Supabase de pruebas `vrgfwefnkrdwrtdymfin`.
+
+### Cambios aplicados en pruebas
+- Se agregó `customers.credit_due_date` para establecer la fecha límite en la ficha del cliente.
+- Se agregó un trigger para copiar la fecha límite del cliente a nuevas ventas al crédito. Las ventas históricas no se modifican; cambiar la fecha en la ficha solo afecta ventas futuras.
+- Se creó `customer_account_payments` como registro de cada abono global, con importe, método, fecha, usuario receptor y caja donde ingresó.
+- Se agregó `payments.account_payment_id` para vincular cada distribución individual con el único abono recibido.
+- Se crearon RPC para resumen global por cliente, detalle completo, créditos sin cliente asignado y registro atómico de abonos globales.
+- El abono global bloquea la cuenta y las ventas implicadas, distribuye desde la compra más reciente (LIFO), crea el detalle de distribución y registra un solo movimiento de caja en la sesión abierta de quien recibió el dinero.
+- La tabla de abonos globales tiene RLS activado, sin acceso directo de anon/authenticated; las operaciones se realizan mediante RPC con permisos limitados. Se revocó EXECUTE público/anon y se concedió a authenticated únicamente para las RPC necesarias.
+
+### Cambios de interfaz preparados y desplegados en vista previa
+- La pantalla Créditos y abonos muestra una ficha por cliente, con compras pendientes, total registrado, total abonado, saldo, fecha límite, consulta de cuenta y registro de abono.
+- Los créditos sin cliente asignado se muestran en una sección independiente.
+- El detalle de cada compra identifica vendedor y código; en observaciones se muestra «Vendedor: nombre · código» junto con el comentario existente.
+- La ficha del cliente permite editar su fecha límite de pago. En la venta, la fecha se completa desde la ficha y queda bloqueada cuando el cliente tiene una fecha configurada.
+- El detalle global incluye productos, importes, vencimientos, vendedor, observaciones y abonos; se mantienen acciones de WhatsApp, PDF e impresión.
+
+### Verificación realizada
+- La migración se aplicó correctamente en Supabase de pruebas.
+- Se verificó la existencia de la tabla, columnas y cuatro RPC nuevas.
+- Se consultó el resumen global de una cuenta de prueba: 4 compras, total S/ 9.50, abonado S/ 2.96 y saldo S/ 6.54.
+- Se consultó el detalle completo y se verificó la identificación del responsable en cada compra.
+- Se identificaron 2 créditos históricos sin cliente asignado; se conservan en la sección independiente.
+- Se simuló un abono de S/ 0.01 dentro de una transacción seguida de ROLLBACK. La RPC asignó el importe a la compra más reciente y devolvió el saldo esperado; la prueba no deja cambios persistentes.
+- El JavaScript de `index.html` pasó la comprobación de sintaxis.
+- Render confirmó como `live` el despliegue de vista previa asociado al commit `d332c9b9cd308cf929505445cd2fea8da457c130`.
+
+### Pendiente
+- Prueba visual y funcional desde el navegador con sesión real de administrador y de vendedor.
+- Confirmar abono real autorizado por el usuario en el entorno de pruebas, verificando caja receptora y distribución completa entre varias ventas.
+- Probar cliente con fecha límite configurada y venta nueva al crédito.
+- No fusionar el PR, modificar `main`, desplegar producción ni alterar registros históricos sin autorización final.
