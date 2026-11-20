@@ -352,7 +352,8 @@ begin
       raise exception 'Stock insuficiente para %',v_product.name;
     end if;
     v_unit=case when p_sale_type='mayorista'
-      then v_product.wholesale_price else v_product.retail_price end;
+      then coalesce(v_product.wholesale_price,v_product.price)
+      else coalesce(v_product.retail_price,v_product.price) end;
     if v_unit<=0 then
       raise exception 'El producto % no tiene precio configurado para este tipo de venta',v_product.name;
     end if;
@@ -441,7 +442,8 @@ begin
     end if;
     v_qty := round(v_base_raw,6);
     v_unit=case when p_sale_type='mayorista'
-      then v_product.wholesale_price else v_product.retail_price end;
+      then coalesce(v_product.wholesale_price,v_product.price)
+      else coalesce(v_product.retail_price,v_product.price) end;
     v_line=v_unit*v_qty;
     insert into public.sale_items(
       sale_id,product_id,product_name,quantity,unit_price,line_total,
