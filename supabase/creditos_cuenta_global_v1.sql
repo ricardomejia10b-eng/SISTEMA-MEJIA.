@@ -70,7 +70,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   select p.role into v_role from public.profiles p where p.id = auth.uid();
-  if v_role not in ('admin','vendedor') then
+  if coalesce(v_role,'') not in ('admin','vendedor') then
     raise exception 'No tienes permiso para consultar cuentas de crédito';
   end if;
 
@@ -122,7 +122,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   select p.role into v_role from public.profiles p where p.id = auth.uid();
-  if v_role not in ('admin','vendedor') then
+  if coalesce(v_role,'') not in ('admin','vendedor') then
     raise exception 'No tienes permiso para consultar cuentas de crédito';
   end if;
 
@@ -222,7 +222,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   select p.role into v_role from public.profiles p where p.id = auth.uid();
-  if v_role not in ('admin','vendedor') then
+  if coalesce(v_role,'') not in ('admin','vendedor') then
     raise exception 'No tienes permiso para consultar créditos';
   end if;
 
@@ -277,10 +277,10 @@ declare
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesión'; end if;
   select p.role into v_role from public.profiles p where p.id=auth.uid();
-  if v_role not in ('admin','vendedor') then
+  if coalesce(v_role,'') not in ('admin','vendedor') then
     raise exception 'No tienes permiso para registrar abonos';
   end if;
-  if p_customer_id is null then raise exception 'Selecciona un cliente';
+  if p_customer_id is null then raise exception 'Selecciona un cliente'; end if;
   if p_amount is null or p_amount<=0 or round(p_amount,2)<>p_amount then
     raise exception 'El abono debe ser mayor que cero y tener como máximo dos decimales';
   end if;
