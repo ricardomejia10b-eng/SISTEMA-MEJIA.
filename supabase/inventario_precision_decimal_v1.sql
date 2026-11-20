@@ -354,7 +354,7 @@ begin
     v_unit=case when p_sale_type='mayorista'
       then coalesce(v_product.wholesale_price,v_product.price)
       else coalesce(v_product.retail_price,v_product.price) end;
-    if v_unit<=0 then
+    if v_unit is null or v_unit<=0 then
       raise exception 'El producto % no tiene precio configurado para este tipo de venta',v_product.name;
     end if;
     v_total=v_total+(v_unit*v_qty);
