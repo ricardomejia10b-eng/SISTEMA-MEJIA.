@@ -6,6 +6,9 @@
 -- sin alterar su valor; no calcula ni inventa equivalencias históricas.
 begin;
 
+-- Quitar y recrear el trigger dependiente de products.stock alrededor del cambio de tipo.
+drop trigger if exists products_stock_audit on public.products;
+
 alter table public.products
   alter column stock type numeric(18,6) using stock::numeric;
 
@@ -85,6 +88,10 @@ begin
   return new;
 end
 $function$;
+
+create trigger products_stock_audit
+after insert or update of stock on public.products
+for each row execute function public.log_product_stock_change();
 
 create or replace function public.admin_record_inventory_movement(
   p_product_id uuid,
