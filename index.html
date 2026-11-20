@@ -30,6 +30,8 @@ body.dark .cash-summary-card{background:#090d0a;border-color:#29362c}
 body.dark .cash-summary-card small{color:#a9b8ad}
 .cash-panel-toggle{width:100%;text-align:left;margin:8px 0;font-size:15px}
 body.dark .cash-panel-toggle{background:#16a34a;color:#fff;border-color:#16a34a}
+
+.credit-toolbar{display:flex;gap:10px;align-items:center;margin:12px 0}.credit-toolbar input{flex:1}.credit-account-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.credit-account-card{border:1px solid #dbe3ee;border-radius:13px;padding:14px;background:#fff}.credit-account-head,.credit-account-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.credit-account-head h3{margin:0 0 4px}.credit-account-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.credit-account-stats small{display:block;color:#68758b}.credit-account-stats strong{font-size:17px}.credit-overdue{background:#fee2e2;color:#991b1b}.credit-unassigned{margin-top:18px}.credit-unassigned h3{margin-top:0}body.dark .credit-account-card{background:#0a0e0b;border-color:#29362c}body.dark .credit-account-stats small{color:#a9b8ad}body.dark .credit-overdue{background:#4c171b;color:#ffe4e6}@media(max-width:600px){.credit-toolbar{align-items:stretch;flex-direction:column}.credit-account-stats strong{font-size:15px}}
 </style></head><body>
 <header><h1>🛍️ SISTEMA MEJÍA</h1><div class="right"><span id="userLabel" class="muted" style="color:#dbeafe"></span><button id="themeToggle" class="secondary" type="button">Modo noche</button><button id="logout" class="secondary hidden">Cerrar sesión</button></div></header>
 <main>
@@ -142,7 +144,67 @@ const tendered=cash>0?Number($('cashTendered').value||0):0;const change=tendered
 const args={p_customer_id:$('saleCustomer').value||null,p_customer_name:$('saleCustomerName').value.trim()||null,p_comments:$('saleComments').value.trim()||null,p_sale_type:$('saleKind').value,p_payment_type:type,p_items:cart.map(x=>({product_id:x.product_id,quantity_in_unit:x.quantity,unit_id:x.unit_id})),p_payments:payments,p_cash_tendered:tendered,p_cash_change:Math.max(0,change),p_due_date:type==='credito'&&$('creditDueDate').value?$('creditDueDate').value:null,p_next_payment_date:type==='credito'&&$('creditNextDate').value?$('creditNextDate').value:null,p_responsible_id:role==='admin'?$('saleResponsible').value:user.id};
 const btn=$('finishSale');btn.disabled=true;btn.textContent='Procesando venta...';
 try{const {data,error}=await db.rpc('finalize_sale_v5',args);if(error){alert('No se registró la venta: '+error.message);return}const {data:createdSale}=await db.from('sales').select('sale_code,cash_change').eq('id',data).maybeSingle();alert('Venta registrada correctamente. Código: '+(createdSale?.sale_code||String(data||'').slice(0,8))+' · Vuelto: '+money(createdSale?.cash_change||0));cart=[];$('saleForm').reset();renderCart();updateCashChange();await loadAll()}finally{btn.disabled=false;btn.textContent='Confirmar venta'}};
-$('creditRows').onclick=async e=>{const dates=e.target.closest('[data-creditdates]');if(dates){const due=prompt('Fecha de vencimiento (AAAA-MM-DD; dejar vacío para borrar):',dates.dataset.due||'');if(due===null)return;const next=prompt('Próxima fecha de pago acordada (AAAA-MM-DD; dejar vacío si no hay):',dates.dataset.next||'');if(next===null)return;const valid=v=>!v||/^\d{4}-\d{2}-\d{2}$/.test(v);if(!valid(due)||!valid(next))return alert('Usa el formato AAAA-MM-DD.');if(due&&next&&next<due)return alert('La próxima fecha de pago no puede ser anterior al vencimiento.');const {error}=await db.rpc('update_credit_dates',{p_sale_id:dates.dataset.creditdates,p_due_date:due||null,p_next_payment_date:next||null});if(error)alert('No se pudieron guardar las fechas: '+error.message);else await loadAll();return}const b=e.target.closest('[data-abono]');if(!b)return;const bal=Number(b.dataset.balance),amount=Number(prompt('Saldo pendiente: '+money(bal)+'\nImporte del abono:',bal));if(!Number.isFinite(amount)||amount<=0||amount>bal)return alert('Importe inválido.');const method=prompt('Método: efectivo, qr o transferencia','efectivo');if(!['efectivo','qr'].includes(method))return alert('Para que el abono se refleje correctamente en el cierre de caja, selecciona efectivo o qr.');const {error}=await db.rpc('register_payment',{p_sale_id:b.dataset.abono,p_amount:amount,p_note:'Abono de crédito',p_payment_method:method});if(error)alert(error.message);else await loadAll()};
+
+async function refreshGlobalCreditAccounts(){
+  const cards=$('creditAccountCards'); if(!cards)return;
+  const {data,error}=await db.rpc('get_customer_credit_accounts');
+  if(error){cards.innerHTML='<div class="notice danger">No se pudieron cargar las cuentas: '+esc(error.message)+'</div>';return}
+  const query=($('creditCustomerSearch').value||'').trim().toLocaleLowerCase('es');
+  const rows=(data||[]).filter(a=>(a.customer_name+' '+(a.phone||'')).toLocaleLowerCase('es').includes(query));
+  const today=localDateISO();
+  cards.innerHTML=rows.map(a=>{
+    const status=a.next_due_date&&a.next_due_date<today?'Vencido':a.next_due_date&&a.next_due_date===today?'Vence hoy':'Pendiente';
+    return '<article class="credit-account-card"><div class="credit-account-head"><div><h3>'+esc(a.customer_name)+'</h3><small>'+esc(a.phone||'Sin teléfono')+' · '+a.open_purchases+' compra(s) pendiente(s)</small></div><span class="pill '+(status==='Vencido'?'credit-overdue':'')+'">'+status+'</span></div><div class="credit-account-stats"><div><small>Total registrado</small><strong>'+money(a.total_registered)+'</strong></div><div><small>Total abonado</small><strong>'+money(a.total_paid)+'</strong></div><div><small>Saldo pendiente</small><strong>'+money(a.balance)+'</strong></div></div><div class="credit-account-foot"><small>Fecha límite: '+esc(a.credit_due_date||a.next_due_date||'No indicada')+'</small><div class="actions"><button type="button" data-global-account="'+a.customer_id+'">Consultar cuenta</button><button type="button" data-global-abono="'+a.customer_id+'" data-balance="'+a.balance+'">Registrar abono</button></div></div></article>';
+  }).join('')||'<div class="notice">No hay clientes con saldo pendiente.</div>';
+  const {data:unassigned,error:unassignedError}=await db.rpc('get_unassigned_credit_sales');
+  if(unassignedError){$('unassignedCreditRows').innerHTML='<p class="danger">No se pudieron cargar: '+esc(unassignedError.message)+'</p>';return}
+  $('unassignedCreditRows').innerHTML=(unassigned||[]).length?'<table><thead><tr><th>Fecha</th><th>Cliente anotado</th><th>Vendedor</th><th>Código</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Vencimiento</th></tr></thead><tbody>'+(unassigned||[]).map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('es-PE')+'</td><td>'+esc(x.customer_name||'Sin nombre')+'</td><td>'+esc(x.seller_name)+' · '+esc(x.seller_code)+'</td><td>'+esc(x.sale_code||x.id.slice(0,8))+'</td><td>'+money(x.total)+'</td><td>'+money(x.paid_amount)+'</td><td>'+money(x.balance)+'</td><td>'+esc(x.due_date||'—')+'</td></tr>').join('')+'</tbody></table>':'<p class="muted">No hay créditos pendientes sin cliente asignado.</p>';
+}
+async function showGlobalCreditAccount(customerId){
+  const {data,error}=await db.rpc('get_customer_credit_account',{p_customer_id:customerId});
+  if(error)return alert('No se pudo abrir la cuenta: '+error.message);
+  const customer=data.customer,purchases=data.purchases||[],total=purchases.reduce((n,x)=>n+Number(x.total||0),0),paid=purchases.reduce((n,x)=>n+Number(x.paid_amount||0),0),balance=total-paid;
+  $('globalCreditTitle').textContent='Cuenta global · '+customer.name;
+  $('globalCreditSummary').textContent='Compras: '+purchases.length+' · Total registrado: '+money(total)+' · Total abonado: '+money(paid)+' · Saldo pendiente: '+money(balance)+' · Fecha límite: '+(customer.credit_due_date||'No indicada');
+  $('globalCreditPurchases').innerHTML='<table><thead><tr><th>Fecha</th><th>Compra y vendedor</th><th>Productos</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Vencimiento</th><th>Observación</th><th>Abonos</th></tr></thead><tbody>'+purchases.map(p=>{
+    const seller=esc(p.seller_name)+' · '+esc(p.seller_code);
+    const items=(p.items||[]).map(i=>esc(i.product_name)+' × '+esc(i.quantity)+' '+esc(i.unit_name)).join('<br>');
+    const payments=(p.payments||[]).map(py=>{
+      const receiver=(data.account_payments||[]).find(a=>a.id===py.account_payment_id);
+      const profile=profiles.find(x=>x.id===py.received_by);
+      return new Date(py.created_at).toLocaleDateString('es-PE')+' · '+money(py.amount)+' · '+esc(py.payment_method||'No indicado')+' · Recibió '+esc(receiver?.receiver_name||profile?.full_name||'No identificado');
+    }).join('<br>')||'Sin abonos';
+    const note='Vendedor: '+seller+(p.comments?' · '+p.comments:'');
+    return '<tr><td>'+new Date(p.created_at).toLocaleDateString('es-PE')+'</td><td>'+esc(p.sale_code||p.id.slice(0,8))+'<br><small>'+seller+'</small></td><td>'+items+'</td><td>'+money(p.total)+'</td><td>'+money(p.paid_amount)+'</td><td>'+money(Number(p.total)-Number(p.paid_amount||0))+'</td><td>'+esc(p.due_date||'No registrada')+'</td><td>'+esc(note)+'</td><td>'+payments+'</td></tr>';
+  }).join('')+'</tbody></table>';
+  const accountText=['SISTEMA MEJÍA · CUENTA GLOBAL','Cliente: '+customer.name,'Teléfono: '+(customer.phone||'No registrado'),'Fecha límite: '+(customer.credit_due_date||'No indicada'),'Total registrado: '+money(total),'Total abonado: '+money(paid),'Saldo pendiente: '+money(balance),'','COMPRAS',...purchases.map(p=>['Código: '+(p.sale_code||p.id.slice(0,8)),'Fecha: '+new Date(p.created_at).toLocaleString('es-PE'),'Vendedor: '+p.seller_name+' · '+p.seller_code,'Productos: '+(p.items||[]).map(i=>i.product_name+' x '+i.quantity+' '+i.unit_name).join(', '),'Total: '+money(p.total),'Abonado: '+money(p.paid_amount),'Saldo: '+money(Number(p.total)-Number(p.paid_amount||0)),'Vencimiento: '+(p.due_date||'No registrada'),'Observación: Vendedor '+p.seller_name+(p.comments?' · '+p.comments:''),'Abonos: '+(p.payments||[]).map(py=>new Date(py.created_at).toLocaleDateString('es-PE')+' '+py.payment_method+' '+money(py.amount)).join('; ')].join('\n')),'','RECEPCIÓN DE ABONOS',...(data.account_payments||[]).map(a=>new Date(a.created_at).toLocaleString('es-PE')+' · '+money(a.amount)+' · '+a.payment_method+' · Recibió '+a.receiver_name+' ('+a.receiver_code+')')].join('\n');
+  $('globalCreditDetail').dataset.shareText=accountText;
+  $('globalCreditDetail').classList.remove('hidden');
+  $('globalCreditDetail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('creditAccountCards').onclick=async e=>{
+  const view=e.target.closest('[data-global-account]');if(view){await showGlobalCreditAccount(view.dataset.globalAccount);return}
+  const pay=e.target.closest('[data-global-abono]');if(!pay)return;
+  const balance=Number(pay.dataset.balance),amount=Number(prompt('Saldo global pendiente: '+money(balance)+'\nImporte del abono:',balance));
+  if(!Number.isFinite(amount)||amount<=0||amount>balance)return alert('Importe inválido.');
+  const method=prompt('Método: efectivo, qr o transferencia','efectivo');
+  if(!['efectivo','qr','transferencia'].includes(method))return alert('Método inválido.');
+  const note=prompt('Observación opcional del abono:','')||null;
+  pay.disabled=true;
+  try{
+    const {data,error}=await db.rpc('register_customer_account_payment',{p_customer_id:pay.dataset.globalAbono,p_amount:amount,p_note:note,p_payment_method:method});
+    if(error)return alert('No se registró el abono: '+error.message);
+    alert('Abono global registrado.\n'+(data.allocations||[]).map(a=>a.sale_code+': '+money(a.amount)).join('\n')+'\nSaldo global: '+money(data.new_balance));
+    await loadAll();await refreshGlobalCreditAccounts();
+  }finally{pay.disabled=false}
+};
+$('creditCustomerSearch').oninput=()=>refreshGlobalCreditAccounts();
+$('refreshCreditAccounts').onclick=()=>refreshGlobalCreditAccounts();
+$('closeGlobalCreditDetail').onclick=()=>$('globalCreditDetail').classList.add('hidden');
+$('globalCreditWhatsApp').onclick=()=>{const t=$('globalCreditDetail').dataset.shareText||'';if(!t)return alert('Primero consulta una cuenta.');window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank','noopener')};
+$('globalCreditPdf').onclick=()=>{if(!window.jspdf?.jsPDF)return alert('No se pudo cargar el generador PDF.');const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),content=$('globalCreditDetail').dataset.shareText||'';let y=18;doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text('SISTEMA MEJÍA · CUENTA GLOBAL',15,y);y+=10;doc.setFont('helvetica','normal');doc.setFontSize(9);for(const line of content.split('\n')){const wrapped=doc.splitTextToSize(line,180);if(y+wrapped.length*5>280){doc.addPage();y=18}doc.text(wrapped,15,y);y+=wrapped.length*5+1}doc.save('Cuenta-global-cliente.pdf')};
+$('globalCreditPrint').onclick=()=>{const t=$('globalCreditDetail').dataset.shareText||'';if(!t)return;const w=window.open('','_blank');if(!w)return alert('Permite ventanas emergentes.');w.document.write('<meta charset="utf-8"><title>Cuenta global</title><pre style="font:13px Arial;white-space:pre-wrap">'+esc(t)+'</pre>');w.document.close();w.print()};
+$('creditRows')?.addEventListener('click',()=>{});
 $('searchProductImage').onclick=()=>{const term=[$('pName').value.trim(),$('pCode').value.trim(),$('pBarcode').value.trim()].filter(Boolean).join(' ');if(!term)return alert('Escribe primero el nombre o código del producto.');window.open('https://www.google.com/search?tbm=isch&q='+encodeURIComponent(term),'_blank','noopener')};
 $('newProduct').onclick=()=>{$('productForm').reset();$('pStock').disabled=false;$('editProductId').value='';$('pBaseUnit').value='unidad';$('pUnits').value='unidad=1';$('productFormTitle').textContent='Nuevo producto';$('productForm').classList.remove('hidden')};
 $('cancelProduct').onclick=()=>$('productForm').classList.add('hidden');
