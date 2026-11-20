@@ -11,7 +11,7 @@ alter table public.products
 
 alter table public.sale_items
   alter column quantity type numeric(18,6) using quantity::numeric,
-  alter column unit_price type numeric(12,6) using unit_price::numeric;
+  alter column unit_price type numeric(18,6) using unit_price::numeric;
 
 alter table public.inventory_movements
   alter column quantity_before type numeric(18,6) using quantity_before::numeric,
@@ -140,6 +140,10 @@ begin
     and is_active = true
   for share;
   if not found then raise exception 'La presentación no está activa para este producto'; end if;
+
+  if v_unit.factor_to_base is null or v_unit.factor_to_base <= 0 then
+    raise exception 'La equivalencia de la presentación debe ser mayor que cero';
+  end if;
 
   if round(p_quantity * v_unit.factor_to_base,6) <> p_quantity * v_unit.factor_to_base then
     raise exception 'La conversión supera seis decimales de precisión en la unidad base';
@@ -283,6 +287,9 @@ begin
       where id=v_unit_id and product_id=v_product.id and is_active=true for share;
       if not found then raise exception 'La presentación seleccionada no está activa para %',v_product.name; end if;
       v_factor := v_unit_row.factor_to_base;
+      if v_factor is null or v_factor <= 0 then
+        raise exception 'La equivalencia de la presentación de % no es válida',v_product.name;
+      end if;
       v_unit_name := v_unit_row.unit_name;
     else
       if v_unit_id is not null then raise exception 'El producto % no tiene presentaciones configuradas',v_product.name; end if;
@@ -295,8 +302,32 @@ begin
     end if;
     v_qty := round(v_base_raw,6);
     if v_qty<=0 then raise exception 'La cantidad equivalente debe ser mayor que cero'; end if;
+    -- Antes de sumar, comprobar que todas las líneas de este producto tienen
+    -- una presentación activa y una equivalencia positiva cuando corresponda.
+    if exists (
+      select 1
+      from jsonb_array_elements(p_items) as a(x)
+      left join public.product_units pu
+        on pu.id = nullif(a.x->>'unit_id','')::uuid
+       and pu.product_id = v_product.id
+       and pu.is_active = true
+      where a.x->>'product_id' = v_product.id::text
+        and (
+          (coalesce(v_product.unit_configured,false)
+            and (nullif(a.x->>'unit_id','') is null
+              or pu.id is null
+              or pu.factor_to_base is null
+              or pu.factor_to_base <= 0))
+          or
+          (not coalesce(v_product.unit_configured,false)
+            and nullif(a.x->>'unit_id','') is not null)
+        )
+    ) then
+      raise exception 'Hay una presentación inválida en el carrito para %',v_product.name;
+    end if;
+
     -- Sumar la demanda total del producto en unidad base.
-    -- COALESCE se aplica al SUM completo para cubrir carritos sin filas coincidentes.
+    -- Todas las equivalencias de sus líneas ya fueron validadas.
     select coalesce(
       sum(
         (coalesce(x->>'quantity_in_unit',x->>'quantity'))::numeric
