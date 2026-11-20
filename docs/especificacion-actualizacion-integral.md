@@ -1,0 +1,286 @@
+# SISTEMA MEJIA — especificación consolidada de actualización
+
+La actualización se implementará sobre la rama de trabajo y sobre la estructura real de Supabase. No se deben borrar registros, perfiles ni usuarios. No publicar en producción hasta completar las pruebas.
+
+## Decisiones de compatibilidad confirmadas
+
+- El control de caja canónico será `cash_sessions`: las funciones actuales de ventas, pagos y movimientos ya dependen de esa tabla.
+- `cash_registers` queda en compatibilidad temporal; no se debe abrir ni cerrar una caja nueva desde la interfaz ni eliminar la tabla durante esta fase.
+- Las ventas deben finalizar mediante una única operación transaccional en Supabase. La interfaz no debe insertar venta, detalle y descuento de inventario en solicitudes separadas.
+- Los métodos de cobro de la aplicación se expresarán como efectivo, Yape, mixto y crédito. Antes de cambiar las restricciones SQL existentes hay que comprobar los valores admitidos por cada tabla.
+- Las políticas RLS existentes se conservan como base: administrador gestiona productos; vendedores consultan catálogo y operan sus ventas, créditos y caja; administrador supervisa globalmente. No se relajan políticas para hacer funcionar la interfaz.
+
+## Productos
+- Búsqueda por nombre, código y código de barras.
+- Listado: foto, producto, código, precio mayorista, precio minorista, stock y acción de escáner.
+- Alta y edición: nombre, código, precios mayorista/minorista, stock y foto desde cámara o archivo.
+- Las imágenes se guardan en Supabase Storage y se sincronizan entre dispositivos. Mostrar imagen predeterminada cuando no exista foto.
+
+## Ventas y caja
+- Apertura y cierre usando exclusivamente `cash_sessions`.
+- No permitir ventas sin sesión abierta.
+- Apertura registra fecha/hora y efectivo inicial.
+- Cierre resume movimientos registrados y separa efectivo, Yape y crédito. Debe mostrar esperado, contado y diferencia; no declarar conciliado si no coincide. Cualquier ajuste requiere autorización y registro.
+- Historial filtrable por fecha.
+- Carrito multi-producto, código único por compra, selector mayorista/minorista, cantidades +/-, eliminación de líneas y cálculo automático.
+- Pago efectivo, Yape, mixto o crédito. En crédito se permite adelanto y saldo pendiente.
+- Comentarios opcionales y nombre libre del cliente para compras grandes.
+- El inventario se descuenta exactamente una vez al confirmar la venta; nunca al editar el carrito. Bloquear stock insuficiente.
+- La confirmación de venta, detalle, pagos, movimientos de caja y descuento de stock deben ser atómicos.
+
+## Clientes
+- Nombre, teléfono y dirección; crear, editar y buscar.
+- Historial por cliente: compras, productos, fechas, cantidades, créditos/deudas y abonos.
+- Estado de cuenta con total, abonado y saldo.
+
+## Créditos
+- Historial con fecha, cliente, código de venta, total, abonado y saldo.
+- Registrar abonos con validación de saldo; actualizar automáticamente el saldo.
+- Un abono no vuelve a descontar inventario.
+
+## Usuarios
+- Sección solo para administrador.
+- Listado de nombre, correo, rol y estado.
+- Nunca mostrar contraseñas. Los cambios de acceso deben usar los flujos seguros de Supabase Authentication.
+
+## Reglas de entrega
+1. Migraciones aditivas, revisadas contra el esquema real; no ejecutar los SQL antiguos incompatibles.
+2. Mantener intacta la rama `main` durante el desarrollo.
+3. Probar apertura/cierre, ventas contado/crédito/mixtas, concurrencia de stock, abonos, RLS e imágenes.
+4. Solo después de aprobación explícita, integrar a producción y desplegar.
+
+
+## Etapa 2 preparada: datos de venta y resumen de caja
+
+Se añadió `supabase/actualizacion_integral_etapa2.sql` como migración complementaria, pendiente de revisión y ejecución autorizada.
+
+- Crea `finalize_sale_v2`, sin reemplazar `finalize_sale`. Conserva la transacción de venta, detalle, pagos, movimientos y descuento de stock; además guarda nombre libre, comentarios y código único.
+- Crea `get_cash_session_summary` para separar el efectivo y QR realmente recibidos del total vendido a crédito y del saldo pendiente.
+- La función de cierre actual `close_cash_session` se conserva. Su conciliación de efectivo/QR no debe sumar el saldo pendiente de crédito como si fuera dinero en caja.
+- La interfaz no debe cambiar a estas funciones hasta que la migración sea revisada y ejecutada correctamente en Supabase.
+
+Orden previsto: revisar etapa 1 y etapa 2; ejecutar ambas solo con aprobación; adaptar la interfaz para las nuevas funciones; probar con datos de prueba; recién después evaluar publicación.
+
+
+## Registro de avance — etapas 1 y 2 aplicadas
+
+- La etapa 1 (supabase/actualizacion_integral_etapa1.sql) fue ejecutada por el usuario en Supabase y verificada: existen sale_code, comments, cash_amount y yape_amount; también se confirmaron los cuatro índices previstos.
+- La estructura real de customers fue verificada: id, name, phone, address, created_by y created_at.
+- La etapa 2 (supabase/actualizacion_integral_etapa2.sql) fue ejecutada por el usuario y verificada: finalize_sale_v2 y get_cash_session_summary existen; authenticated puede ejecutarlas y anon no.
+- Se conserva la función original finalize_sale y no se reemplazaron las funciones de apertura, abonos o cierre.
+- En index.html, rama de trabajo, el formulario de ventas ahora llama a finalize_sale_v2 y envía cliente, nombre libre, comentarios, tipo de venta, artículos y pagos. También consulta get_cash_session_summary para presentar efectivo/QR esperado, ventas a crédito, abonos, saldo y total vendido.
+- Se agregó validación de correspondencia entre método seleccionado e importes de efectivo/Yape para ventas al contado y crédito.
+
+Estado: integración inicial de ventas y resumen de caja preparada en la rama de trabajo. Aún requiere pruebas funcionales completas; no se ha integrado a main ni desplegado a producción. Las demás funciones solicitadas (incluyendo historial filtrable, estado de cuenta detallado, imágenes sincronizadas, gestión de usuarios y comprobante) deben seguir verificándose e implementándose antes de considerar terminada la actualización integral.
+
+
+## Integración adicional de interfaz — rama de trabajo
+
+Se amplió index.html sin publicar a producción:
+- Historial de ventas con filtros por fecha desde/hasta y búsqueda por código o cliente.
+- Comprobante imprimible por venta, con código, fecha, cliente, detalle de productos, cantidades, precios, subtotales, total, abonado, saldo y comentarios.
+- Consulta de estado de cuenta por cliente, con compras, total acumulado, abonado, saldo y detalle de abonos por fecha y método.
+- Listado administrativo de perfiles con nombre, rol y fecha de registro. El correo no se expone porque no se ha confirmado que exista en profiles; la administración de credenciales requiere un flujo seguro de Supabase Auth.
+- Búsqueda externa de imágenes por nombre/código; el usuario descarga una imagen autorizada y la carga al producto. Se conserva selección desde cámara/galería.
+- Se corrigió la carga de precios y subtotales de artículos para el comprobante y se muestra el sale_code real después de guardar la venta.
+- Se evitó cambiar created_by al editar un cliente.
+
+Validación estática: el JavaScript embebido de index.html pasó una comprobación de sintaxis. Esto no sustituye pruebas en navegador ni pruebas reales contra Supabase.
+
+Pendiente antes de producción: verificar en navegador con usuarios vendedor y administrador; probar apertura/cierre, venta contado, crédito y mixta, descuento de stock, abonos, consulta de cliente, filtros, impresión, permisos RLS y subida/visualización de imágenes. También queda por confirmar bucket y políticas de Storage, flujo de escáner por cámara y operaciones administrativas de Auth. No integrar a main ni desplegar hasta completar pruebas y autorización explícita.
+
+
+## Alcance ampliado — actualización integral v2 (aprobado para desarrollo en pruebas)
+
+El usuario autorizó avanzar con la nueva versión integral tomando como base la rama de actualización y el proyecto Supabase de pruebas. Mantener `main`, producción y los datos existentes intactos hasta aprobación final.
+
+### Identificación y reportes de vendedores
+- Asignar a cada perfil de vendedor un código único, irrepetible y permanente al crearlo. Debe generarse de forma segura en la base de datos, no depender del navegador ni del nombre editable.
+- Mostrar código y nombre juntos en administración, historial, detalles, reportes y resúmenes.
+- El administrador tendrá una vista de ventas por vendedor: todos o un vendedor específico, con cantidad de operaciones y total vendido por día.
+- Separar total vendido, efectivo cobrado, Yape cobrado, otros medios, adelantos de créditos y saldo pendiente. No confundir ventas a crédito con dinero recibido.
+- Vendedores solo consultan sus propias ventas, su propia caja y sus propios importes. Toda restricción debe aplicarse también en RLS/RPC, no solo ocultando controles de interfaz.
+
+### Confirmación de venta y vuelto
+- En ventas al contado con efectivo, añadir el importe entregado por el cliente y calcular automáticamente el vuelto: efectivo recibido menos importe que corresponde cobrar en efectivo.
+- Validar que el importe entregado cubra la parte en efectivo. No calcular vuelto sobre Yape ni sobre un saldo a crédito.
+- En pagos mixtos, separar importe efectivo e importe Yape; el vuelto se calcula únicamente sobre el efectivo recibido y el sistema debe distinguir dinero recibido de importe aplicado a la venta.
+- Guardar importes aplicados y, si corresponde, efectivo entregado y vuelto como datos de la operación, con comprobante claro. No alterar el total ni los pagos registrados para simular el vuelto.
+
+### Apariencia
+- Incorporar modo día y modo noche con paleta coherente y contraste legible en todas las secciones, tablas, formularios, avisos y diálogos propios.
+- Permitir que cada usuario elija su preferencia y conservarla entre sesiones/dispositivos cuando sea posible mediante un ajuste por usuario; no afectar permisos ni datos operativos.
+
+### Historial de ventas e inventario
+- El administrador podrá consultar el historial global o filtrarlo por vendedor; cada fila y detalle identificará al vendedor responsable por nombre y código.
+- Mantener para vendedor el alcance de sus propias ventas.
+- Crear auditoría de inventario por producto que registre stock inicial, ingresos, salidas por venta, ajustes manuales y cualquier edición que cambie stock: fecha/hora, usuario responsable, tipo, cantidad anterior, variación, stock resultante y motivo/comentario.
+- La actualización de stock y su movimiento de auditoría deben ser atómicos; no inventar el stock inicial histórico que no exista en los registros actuales.
+
+### Créditos
+- Ampliar el módulo para fechas de vencimiento, fecha de pago/abono y próximo pago acordado, historial de abonos, saldo y estados pendiente/parcial/pagado/vencido.
+- Conservar los créditos y pagos existentes. Las nuevas fechas de vencimiento históricas permanecerán sin asignar cuando no haya evidencia fiable; no inventarlas.
+
+### Productos, búsqueda y escáner
+- Añadir imágenes referenciales por producto, cámara/galería, imagen predeterminada y miniaturas en ventas; conservar sincronización entre dispositivos mediante Storage.
+- La búsqueda manual debe presentar coincidencias dinámicas seleccionables conforme se escribe.
+- El escaneo de código debe identificar y agregar/dirigir directamente al producto coincidente, sin presentar una lista alternativa. Si no existe coincidencia o no hay stock, informar claramente.
+
+### Resumen de caja
+- Rediseñar exclusivamente la presentación de «Resumen de caja» con bloques claros e importes destacados. No extender el rediseño a otras tablas.
+- No cerrar ni conciliar sesiones existentes durante desarrollo o pruebas sin autorización explícita del usuario.
+
+### Método de implementación y aceptación
+1. Auditar esquema real, funciones, políticas RLS, permisos, triggers y código antes de cada migración.
+2. Preparar migraciones aditivas e idempotentes, con verificaciones previas y posteriores; nunca ejecutar bootstrap sobre el esquema existente.
+3. Mantener la lógica transaccional de ventas, pagos, movimientos y stock. Cualquier cambio de RPC debe conservar firmas compatibles o versionarse y verificarse.
+4. Implementar y probar primero en la rama de actualización y el proyecto Supabase de pruebas.
+5. Probar con roles de administrador y vendedor, casos contado/efectivo con vuelto, Yape, mixto, crédito, abonos, stock, auditoría, filtros, tema, Storage y permisos.
+6. No modificar producción, integrar a main, cerrar cajas ni desplegar hasta que el usuario revise resultados y autorice expresamente.
+
+
+## Avance de implementación — 12 de noviembre de 2026
+
+El usuario confirmó que se debe continuar desde la versión que quedó preparada en pruebas, conservar lo que ya funciona y añadir directamente las mejoras pendientes, sin rehacer el sistema.
+
+### Archivos preparados en la rama `actualizacion-integral-sistema-mejia`
+- `index.html`: historial administrativo con filtro por vendedor y nombre/código en filas; resumen diario filtrable por fecha y vendedor; identificación del vendedor en comprobantes; captura de efectivo entregado y cálculo de vuelto sobre la parte en efectivo; captura/edición de vencimiento y próxima fecha de pago; estado visual de créditos; historial de inventario para administradores; motivo obligatorio para ajustes de stock; escaneo que agrega directamente el producto encontrado; miniatura en el formulario de venta; preferencia de tema claro/oscuro persistida en perfil.
+- `supabase/actualizacion_integral_v2.sql`: migración aditiva que prepara códigos únicos de vendedor, fotografía de nombre/código en ventas, fechas/estado de crédito, efectivo entregado/vuelto, tabla RLS de auditoría de inventario, triggers de stock y estado de crédito, RPC para ajustes de stock, edición de fechas de crédito y `finalize_sale_v3` compatible con la operación transaccional existente.
+- Esta migración está preparada, revisada estructuralmente y guardada en GitHub; **todavía no se ha ejecutado en Supabase**.
+- Se verificó sintaxis JavaScript del script embebido de `index.html` mediante compilación estática; no sustituye la prueba real en navegador.
+- Se verificó que las siete funciones PL/pgSQL nuevas tienen delimitadores dollar-quote balanceados y que la firma de `finalize_sale_v3` coincide con la llamada prevista. Aún falta ejecución real en PostgreSQL para validar la migración.
+- No se ha desplegado el frontend ni ejecutado la migración; no se modificó producción ni se cerró ni se concilió ninguna caja.
+
+### Siguiente paso obligatorio
+Ejecutar `supabase/actualizacion_integral_v2.sql` únicamente en el SQL Editor del proyecto de pruebas `vrgfwefnkrdwrtdymfin`. Antes de pulsar Run, confirmar visualmente el proyecto seleccionado. Si la ejecución devuelve cualquier error, detenerse y compartir el error completo; no repetir ni ejecutar fragmentos sueltos hasta revisar el estado de la transacción. Después ejecutar las consultas de verificación y probar el frontend de la rama contra el mismo proyecto de pruebas.
+
+- También se incorporó al panel administrativo la consulta de sesiones y resumen de caja por vendedor, sin botones para cerrar o conciliar cajas ajenas.
+- Se agregó `supabase/verificar_actualizacion_integral_v2.sql`, un conjunto de consultas de solo lectura para comprobar códigos, fotografía de vendedor, auditoría, RLS, triggers y permisos RPC después de aplicar la migración.
+
+
+## Requisitos nuevos confirmados — 17 de noviembre de 2026
+
+Estos requisitos se incorporan al alcance de la actualización integral en la rama de pruebas. Deben implementarse sin eliminar ni alterar registros históricos y sin cambiar la rama `main` ni Supabase de producción.
+
+### Unidades de medida y presentaciones de inventario
+
+- En los formularios **Agregar producto** y **Editar producto**, incorporar el campo obligatorio **Unidad de medida**.
+- Permitir configurar unidades y presentaciones según el producto: unidad, docena, ciento; kg/g/tonelada; L/ml/galón; m/cm/mm; paquete, caja, bolsa, rollo, entre otras.
+- Cada presentación debe tener una equivalencia explícita y configurable por producto. No asumir conversiones universales: por ejemplo, un paquete puede contener 12 unidades solo si esa equivalencia fue configurada para ese producto.
+- El modelo debe distinguir la unidad base de inventario de las presentaciones de compra/venta. Las cantidades deben almacenarse con precisión suficiente y una conversión determinista a la unidad base; no redondear silenciosamente.
+- Mostrar existencias en formato compuesto cuando corresponda, por ejemplo **10 paquetes y 3 unidades**, manteniendo visible la equivalencia usada. No mostrar el total de unidades base como si fueran paquetes.
+- Ingresos, salidas por venta, ajustes manuales, ediciones e historial deben registrar cantidad y presentación originales, factor de conversión aplicado, cantidad equivalente en unidad base, usuario, fecha/hora, motivo y saldo resultante.
+- En ventas, permitir seleccionar la presentación/unidad y cantidad. El descuento de inventario debe convertirla a la unidad base usando la equivalencia del producto y validar existencias. El comprobante debe conservar la presentación vendida y su precio.
+- La creación y edición de unidades, equivalencias, stock y movimientos debe ser atómica y auditada. No migrar los stocks históricos suponiendo equivalencias que no estén configuradas; los productos existentes deben conservar su cantidad actual y recibir una unidad base inicial explícita durante una migración controlada.
+
+### Comprobante individual: PDF y WhatsApp
+
+- Conservar la impresión actual del comprobante.
+- Añadir descarga/exportación del comprobante individual como PDF.
+- Añadir una acción para compartir el PDF por WhatsApp cuando el navegador/dispositivo admita compartir archivos. Si no lo admite, ofrecer una alternativa clara para descargar el PDF y abrir WhatsApp con un mensaje preparado.
+- El comprobante debe incluir código de venta, fecha/hora, vendedor y código, cliente, productos, presentación/unidad, cantidad, precio unitario, subtotal, total, abonado, saldo, desglose de efectivo/Yape, efectivo entregado y vuelto cuando correspondan, y tipo de operación.
+- El documento debe generarse desde los datos de la venta seleccionada, sin mezclar información de otras ventas.
+
+### Estado de cuenta completo: WhatsApp y PDF
+
+- En **Créditos y abonos**, permitir compartir por WhatsApp el estado de cuenta completo de un cliente, no solo un crédito individual.
+- Incluir datos del cliente, cada crédito y su código, fecha, total original, abonos, saldo, vencimiento, próximo pago y estado.
+- Incluir el historial de todos los abonos por crédito, con fecha, importe y método de pago cuando ese dato exista.
+- Mostrar totales consolidados del cliente: deuda original, total abonado y saldo pendiente.
+- Añadir opción de exportar el estado de cuenta completo a PDF y compartirlo por WhatsApp cuando el dispositivo lo permita; ofrecer descarga y enlace de WhatsApp como alternativa compatible.
+- No inventar teléfonos, fechas ni métodos de pago históricos que no estén guardados. Si falta un dato, mostrarlo como no registrado.
+
+### Alcance visual que debe permanecer intacto
+
+- La barra existente **«Buscar por nombre o código»** en el catálogo de Productos y el botón/texto de búsqueda de imágenes deben conservarse exactamente como están. El usuario confirmó que esa búsqueda visual y funcional está correcta y pidió expresamente no modificarla.
+- Las mejoras de búsqueda dinámica solicitadas para **Ventas** se limitan al buscador de Ventas; no cambiar la presentación ni el comportamiento del buscador de Productos.
+
+### Orden de implementación y seguridad
+
+1. Auditar las columnas, restricciones, triggers, RPC y RLS reales antes de definir la migración de unidades y presentaciones. Revisar especialmente la lógica transaccional que descuenta stock y la precisión/tipo actual de las cantidades.
+2. Diseñar primero el modelo de unidad base y presentaciones por producto, con equivalencias explícitas y compatibilidad de lectura para productos existentes. No aplicar una conversión implícita a los stocks actuales.
+3. Adaptar en conjunto formularios, inventario, ajustes, ventas, comprobantes e historial; evitar una solución solo visual que no descuente correctamente.
+4. Implementar PDF/WhatsApp para comprobantes y estados de cuenta usando datos ya autorizados por RLS, sin exponer información de otros vendedores a cuentas de vendedor.
+5. Mantener el buscador de imágenes y el buscador del catálogo de Productos intactos.
+6. Validar sintaxis, migraciones, transacciones y permisos en el entorno de pruebas; luego ejecutar pruebas funcionales controladas. No tocar producción, no fusionar el PR y no cerrar ni conciliar cajas existentes sin autorización expresa.
+
+
+### Avance técnico — movimientos de inventario con presentaciones (17 de noviembre de 2026)
+
+- Se añadió `supabase/inventario_presentaciones_v2.sql` a la rama. Debe aplicarse después de `actualizacion_integral_v2.sql` y `unidades_medida_presentaciones_v1.sql`, únicamente en el proyecto de pruebas.
+- La migración agrega campos de presentación, cantidad ingresada, equivalencia, variación en unidad base y saldo resultante al libro existente `inventory_movements`. No crea un historial paralelo ni modifica el stock al instalarse.
+- Se amplió el trigger de auditoría para guardar esos datos cuando el movimiento proviene de la nueva RPC `admin_record_inventory_movement`.
+- La RPC permite al administrador registrar ingresos y ajustes (+/-), valida que la presentación esté activa y pertenezca al producto, bloquea el producto durante la operación, impide stock negativo y registra el cambio mediante el trigger dentro de la misma transacción.
+- La interfaz de catálogo incorpora la acción **Movimiento**, selección de presentación, cantidad, tipo y motivo; el historial muestra presentación, equivalencia y variación en unidad base. El campo de stock queda bloqueado al editar un producto para evitar saltarse el registro de movimientos.
+- **Limitación pendiente:** `products.stock` sigue siendo INTEGER. La RPC rechaza conversiones que produzcan fracciones de unidad base; no redondea. Antes de admitir productos cuyo inventario base sea fraccionario (kg, litros, metros, etc.), habrá que diseñar una migración controlada a precisión decimal y adaptar las ventas.
+- **Pendiente de integrar:** registrar presentación y equivalencia en salidas por venta y permitir seleccionar presentación/cantidad en el carrito; los cambios actuales cubren ingresos y ajustes administrativos, no completan todavía todo el ciclo de ventas con presentaciones.
+- Esta migración y la interfaz todavía no se han ejecutado ni probado contra Supabase. No ejecutar scripts ni registrar movimientos reales hasta revisar el orden completo de migraciones y autorizar expresamente la ejecución en pruebas.
+
+
+### Avance técnico — ventas con presentación (17 de noviembre de 2026)
+
+- Se añadió `supabase/ventas_presentaciones_v5.sql`, que crea la RPC `finalize_sale_v5` conservando el flujo transaccional de `finalize_sale_v4`: responsable/caja, pagos, efectivo entregado, vuelto, crédito y fechas.
+- Para productos con presentaciones configuradas, la RPC exige una presentación activa perteneciente al producto; obtiene el factor desde la base de datos (no confía en el factor enviado por el navegador), convierte cantidad ingresada a unidades base y valida stock antes de crear la venta.
+- Se mantiene `sale_items.quantity` como cantidad en unidad base entera para compatibilidad; además se guardan `unit_id`, `unit_name_snapshot`, `base_unit_snapshot`, `quantity_in_unit`, `quantity_in_base` y `conversion_factor_snapshot`. El comprobante y la cuenta del cliente muestran la cantidad y presentación originales.
+- El precio de presentación se calcula proporcionalmente multiplicando el precio actual de la unidad base por el factor configurado; el subtotal conserva el mismo importe económico que la conversión a unidades base. Si se requiere precio independiente por presentación, será una ampliación separada del modelo de precios.
+- El descuento de stock establece el contexto de venta para que el trigger de auditoría relacione el movimiento con el código/ID de la venta y guarde presentación, cantidad y equivalencia.
+- La interfaz de ventas ahora permite seleccionar presentación, introducir cantidad decimal, visualizar equivalencia y stock compuesto, separar en el carrito líneas del mismo producto cuando usan presentaciones distintas, validar el stock total en unidad base y enviar los datos a `finalize_sale_v5`.
+- Se conservan las ventas históricas: los campos nuevos quedan nulos para líneas antiguas y la interfaz mantiene la lectura alternativa de `quantity`.
+- Se comprobó la sintaxis JavaScript del script embebido de `index.html` mediante compilación estática. Esto no valida el SQL en PostgreSQL ni sustituye pruebas en navegador/Supabase.
+- **Pendiente:** revisar la secuencia completa de migraciones y ejecutar validación PostgreSQL en el proyecto de pruebas; probar casos con unidad base, paquete, más de una presentación en una venta, stock insuficiente, equivalencia fraccionaria y auditoría. No se ha ejecutado ninguna migración ni registrado ventas de prueba.
+- **Limitación vigente:** el stock sigue siendo entero; las cantidades que no conviertan a unidades base enteras se rechazan. Los productos basados en kg/litros/metros con fracciones requieren migración posterior a tipo decimal.
+
+
+### Avance técnico — precisión decimal para unidades fraccionarias (17 de noviembre de 2026)
+
+- Se añadió `supabase/inventario_precision_decimal_v1.sql`. Convierte `products.stock`, `sale_items.quantity` y las cantidades principales de `inventory_movements` de entero a `numeric(18,6)`; los valores históricos enteros se convierten exactamente, sin recalcular ni alterar su valor.
+- También amplía `sale_items.unit_price` a `numeric(12,6)` para conservar el precio proporcional de presentaciones pequeñas.
+- Reemplaza la RPC de movimientos de inventario para admitir cantidades fraccionarias en la unidad base y mantiene validación de stock no negativo, bloqueo de producto, motivo y auditoría.
+- Reemplaza `finalize_sale_v5` para descontar cantidades decimales con precisión de hasta seis decimales. Las conversiones que excedan esa precisión se rechazan explícitamente.
+- La interfaz permite introducir stock y cantidades de venta con hasta seis decimales; el carrito valida el total reservado en unidad base. La presentación base se selecciona inicialmente, aunque se puede elegir otra.
+- La migración revoca las RPC antiguas de venta y ajuste de stock que pudieran permitir operaciones sin el nuevo detalle de presentación; las revocaciones de funciones heredadas opcionales se ejecutan solo si dichas funciones existen.
+- **Orden requerido antes de aplicar en pruebas:** completar primero las migraciones estructurales y de caja necesarias (`actualizacion_integral_etapa2.sql`, `actualizacion_integral_v2.sql`, `ventas_responsable_caja_v4.sql`), después `unidades_medida_presentaciones_v1.sql`, `inventario_presentaciones_v2.sql`, `ventas_presentaciones_v5.sql` y finalmente `inventario_precision_decimal_v1.sql`. Debe verificarse el estado real del proyecto de pruebas y el orden exacto antes de ejecutar.
+- **Sin ejecución todavía:** no se ha aplicado ninguna de estas migraciones en Supabase ni se han hecho ventas, ajustes o cambios de stock de prueba. La sintaxis JavaScript se valida estáticamente; las migraciones SQL todavía requieren validación en PostgreSQL de pruebas antes de cualquier operación funcional.
+
+
+- Se añadió `supabase/verificar_presentaciones_y_ventas_v1.sql`, un conjunto de consultas de solo lectura para revisar tipos decimales, presentaciones activas, snapshots históricos, movimientos auditados, RLS, triggers y permisos de las RPC nuevas/antiguas.
+- Las equivalencias, cantidades de presentación y cantidades base quedan limitadas a seis decimales. Tanto la configuración de presentaciones como las RPC de ingreso y venta rechazan valores que excedan esa precisión, sin redondeo silencioso.
+
+- Se añadió `docs/plan-pruebas-presentaciones.md` con escenarios controlados para unidad base, paquetes/cajas, peso/volumen fraccionario, ajustes, stock insuficiente, precisión, permisos, auditoría, caja/crédito y preservación histórica. Se ejecutará únicamente en el entorno de pruebas y con productos/caja exclusivos de prueba.
+
+
+## Implementación — cuenta global de créditos por cliente (20 de noviembre de 2026)
+
+Se añadió a la rama `actualizacion-integral-sistema-mejia` la migración `supabase/creditos_cuenta_global_v1.sql` y se aplicó exclusivamente al proyecto Supabase de pruebas `vrgfwefnkrdwrtdymfin`.
+
+### Cambios aplicados en pruebas
+- Se agregó `customers.credit_due_date` para establecer la fecha límite en la ficha del cliente.
+- Se agregó un trigger para copiar la fecha límite del cliente a nuevas ventas al crédito. Las ventas históricas no se modifican; cambiar la fecha en la ficha solo afecta ventas futuras.
+- Se creó `customer_account_payments` como registro de cada abono global, con importe, método, fecha, usuario receptor y caja donde ingresó.
+- Se agregó `payments.account_payment_id` para vincular cada distribución individual con el único abono recibido.
+- Se crearon RPC para resumen global por cliente, detalle completo, créditos sin cliente asignado y registro atómico de abonos globales.
+- El abono global bloquea la cuenta y las ventas implicadas, distribuye desde la compra más reciente (LIFO), crea el detalle de distribución y registra un solo movimiento de caja en la sesión abierta de quien recibió el dinero.
+- La tabla de abonos globales tiene RLS activado, sin acceso directo de anon/authenticated; las operaciones se realizan mediante RPC con permisos limitados. Se revocó EXECUTE público/anon y se concedió a authenticated únicamente para las RPC necesarias.
+
+### Cambios de interfaz preparados y desplegados en vista previa
+- La pantalla Créditos y abonos muestra una ficha por cliente, con compras pendientes, total registrado, total abonado, saldo, fecha límite, consulta de cuenta y registro de abono.
+- Los créditos sin cliente asignado se muestran en una sección independiente.
+- El detalle de cada compra identifica vendedor y código; en observaciones se muestra «Vendedor: nombre · código» junto con el comentario existente.
+- La ficha del cliente permite editar su fecha límite de pago. En la venta, la fecha se completa desde la ficha y queda bloqueada cuando el cliente tiene una fecha configurada.
+- El detalle global incluye productos, importes, vencimientos, vendedor, observaciones y abonos; se mantienen acciones de WhatsApp, PDF e impresión.
+
+### Verificación realizada
+- La migración se aplicó correctamente en Supabase de pruebas.
+- Se verificó la existencia de la tabla, columnas y cuatro RPC nuevas.
+- Se consultó el resumen global de una cuenta de prueba: 4 compras, total S/ 9.50, abonado S/ 2.96 y saldo S/ 6.54.
+- Se consultó el detalle completo y se verificó la identificación del responsable en cada compra.
+- Se identificaron 2 créditos históricos sin cliente asignado; se conservan en la sección independiente.
+- Se simuló un abono de S/ 0.01 dentro de una transacción seguida de ROLLBACK. La RPC asignó el importe a la compra más reciente y devolvió el saldo esperado; la prueba no deja cambios persistentes.
+- El JavaScript de `index.html` pasó la comprobación de sintaxis.
+- Render confirmó como `live` el despliegue de vista previa asociado al commit `d332c9b9cd308cf929505445cd2fea8da457c130`.
+
+### Pendiente
+- Prueba visual y funcional desde el navegador con sesión real de administrador y de vendedor.
+- Confirmar abono real autorizado por el usuario en el entorno de pruebas, verificando caja receptora y distribución completa entre varias ventas.
+- Probar cliente con fecha límite configurada y venta nueva al crédito.
+- No fusionar el PR, modificar `main`, desplegar producción ni alterar registros históricos sin autorización final.

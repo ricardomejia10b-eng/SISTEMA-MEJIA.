@@ -5,3 +5,5 @@ services:
     buildCommand: echo "Publicando SISTEMA MEJIA"
     staticPublishPath: .
     autoDeploy: true
+    previews:
+      generation: manual
