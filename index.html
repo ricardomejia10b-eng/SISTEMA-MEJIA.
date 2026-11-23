@@ -196,6 +196,28 @@ body.dark #ventas .sale-cart-section .sale-total-row{background:#14251a}
 body.dark .mobile-nav-toggle{background:#16a34a;color:#fff}
 @media(prefers-reduced-motion:reduce){#appView>.tabs{transition:none}}
 
+/* Botones más vivos, legibles y consistentes en ambos temas */
+button{border-radius:11px;padding:10px 16px;font-weight:700;letter-spacing:.1px;box-shadow:0 2px 5px rgba(23,37,84,.12);transition:background .18s ease,transform .18s ease,box-shadow .18s ease,filter .18s ease}
+button:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 5px 12px rgba(23,37,84,.18)}
+button:active:not(:disabled){transform:translateY(0);box-shadow:0 1px 3px rgba(23,37,84,.14)}
+button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+button:disabled{filter:saturate(.65);box-shadow:none}
+button.secondary{background:#e6efff;color:#1e40af;border:1px solid #c7d9fb;box-shadow:0 1px 3px rgba(30,64,175,.08)}
+button.secondary:hover:not(:disabled){background:#d7e6ff;color:#1e3a8a}
+#appView>.tabs button{min-height:46px;border:1px solid transparent;border-radius:11px;font-size:14px}
+#appView>.tabs button.active{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;box-shadow:0 5px 13px rgba(37,99,235,.28)}
+#appView>.tabs button.secondary{background:#f1f5fb;color:#334155;border-color:#e2e8f0;box-shadow:none}
+#appView>.tabs button.secondary:hover{background:#e3edff;color:#1d4ed8;border-color:#bfd3fb}
+.mobile-nav-toggle{font-weight:750}
+body.dark button{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1px solid #22c55e;box-shadow:0 3px 9px rgba(22,163,74,.2)}
+body.dark button.secondary{background:#17251b;color:#d8f5df;border:1px solid #386044;box-shadow:none}
+body.dark button.secondary:hover:not(:disabled){background:#203b29;color:#fff}
+body.dark #appView>.tabs button.active{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 5px 14px rgba(22,163,74,.25)}
+body.dark #appView>.tabs button.secondary{background:#111a14;color:#c5d5c9;border-color:#293b2e}
+body.dark #appView>.tabs button.secondary:hover{background:#1b3021;color:#fff;border-color:#3d754b}
+body.dark button:focus-visible{outline-color:#4ade80}
+@media(max-width:760px){#appView>.tabs button{min-height:48px;font-size:15px}}
+@media(prefers-reduced-motion:reduce){button{transition:none}}
 </style></head><body>
 <header><h1>🛍️ SISTEMA MEJÍA</h1><div class="right"><span id="userLabel" class="muted" style="color:#dbeafe"></span><button id="themeToggle" class="secondary" type="button">Modo noche</button><button id="logout" class="secondary hidden">Cerrar sesión</button></div></header>
 <main>
