@@ -110,6 +110,59 @@ body.dark #ventas .sale-price-mode{background:#101a12;border-color:#31513a}
 body.dark #ventas .sale-price-mode small{color:#c7d7ca}
 body.dark #ventas .sale-price-mode select{background:#111a13;color:#e8f5eb;border-color:#22c55e}
 @media(max-width:680px){#ventas .sale-price-mode{align-items:stretch;flex-direction:column}#ventas .sale-price-mode select{max-width:none;width:100%}#ventas .sale-config-fields{grid-template-columns:1fr}}
+
+/* Rediseño de ventas: catálogo amplio y carrito lateral, sin alterar lógica ni datos. */
+#ventas .sale-main-column{min-width:0}
+#ventas #saleForm{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);grid-template-areas:
+"responsible cart"
+"price cart"
+"search cart"
+"heading cart"
+"products cart"
+"config cart"
+"checkout checkout"
+"finish finish";gap:0 18px;align-items:start}
+#ventas #saleForm>.sale-responsible{grid-area:responsible}
+#ventas #saleForm>.sale-price-mode{grid-area:price}
+#ventas #saleForm>.sale-search-area{grid-area:search;min-width:0}
+#ventas #saleForm>.sale-catalog-heading{grid-area:heading}
+#ventas #saleForm>#saleProductCards{grid-area:products;min-width:0}
+#ventas #saleForm>#saleConfigPanel{grid-area:config}
+#ventas #saleForm>.sale-cart-section{grid-area:cart;position:sticky;top:16px;margin:0;padding:17px;background:#fff;border:1px solid #dbe3ee;border-radius:17px;box-shadow:0 8px 24px rgba(15,23,42,.06);min-width:0}
+#ventas #saleForm>#saleCheckoutPanel{grid-area:checkout;min-width:0}
+#ventas #saleForm>#finishSale{grid-area:finish;grid-column:2;margin-top:12px}
+#ventas .sale-cart-section .sale-section-title{align-items:flex-start}
+#ventas .sale-cart-section .sale-section-title h3{font-size:20px;margin:5px 0}
+#ventas #cartRows{max-height:430px;overflow:auto;padding:10px;background:#f8fafc}
+#ventas .sale-cart-section .sale-total-row{margin-top:12px}
+#ventas .sale-product-grid{grid-template-columns:repeat(auto-fill,minmax(138px,1fr))}
+#ventas .sale-product-card{min-height:190px}
+#ventas .sale-product-card strong{line-height:1.35}
+#ventas .sale-search-area{margin:12px 0 14px}
+#ventas .sale-price-mode{margin:8px 0 12px}
+#ventas #saleConfigPanel{margin:10px 0 16px}
+#ventas #saleCheckoutPanel{grid-column:2}
+#ventas #saleForm>#saleCheckoutPanel.hidden{display:none!important}
+#ventas .sale-cart-section .sale-type-picker{width:100%;justify-content:stretch}
+#ventas .sale-cart-section .sale-type-choice{flex:1}
+#ventas .sale-checkout-button{min-height:52px}
+@media(max-width:900px){
+ #ventas #saleForm{grid-template-columns:minmax(0,1fr);grid-template-areas:"responsible" "price" "search" "heading" "products" "config" "cart" "checkout" "finish";gap:0}
+ #ventas #saleForm>.sale-cart-section{position:static;margin-top:14px}
+ #ventas #saleForm>#saleCheckoutPanel{grid-column:1}
+ #ventas #saleForm>#finishSale{grid-column:1}
+ #ventas #cartRows{max-height:360px}
+}
+@media(max-width:560px){
+ #ventas #saleForm{display:block}
+ #ventas .sale-cart-section{padding:12px}
+ #ventas .sale-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #ventas .sale-product-card{min-height:170px}
+}
+body.dark #ventas #saleForm>.sale-cart-section{background:#0b100c;border-color:#31513a;box-shadow:none}
+body.dark #ventas #cartRows{background:#090d0a;border-color:#29362c}
+body.dark #ventas .sale-cart-section .sale-total-row{background:#14251a}
+
 </style></head><body>
 <header><h1>🛍️ SISTEMA MEJÍA</h1><div class="right"><span id="userLabel" class="muted" style="color:#dbeafe"></span><button id="themeToggle" class="secondary" type="button">Modo noche</button><button id="logout" class="secondary hidden">Cerrar sesión</button></div></header>
 <main>
