@@ -354,6 +354,19 @@ body.dark #usuarios .tablewrap tbody tr:hover td{background:transparent!importan
 @media(max-width:560px){#usuarios .tablewrap tbody{grid-template-columns:1fr}#usuarios .tablewrap tbody tr{padding:13px}}
 
 
+
+/* Tarjetas resumen de usuarios interactivas */
+#usuarios .users-stat-card{width:100%;font:inherit;text-align:left;cursor:pointer;color:inherit;appearance:none;-webkit-appearance:none;position:relative}
+#usuarios .users-stat-card:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
+#usuarios .users-stat-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(16,45,80,.13)}
+#usuarios .users-stat-card.is-selected{border:2px solid #2563eb;background:linear-gradient(145deg,#edf5ff,#fff);box-shadow:0 0 0 3px rgba(37,99,235,.10)}
+#usuarios .users-stat-copy{display:block;min-width:0}
+#usuarios .users-stat-copy em{display:block;margin-top:6px;color:#2563eb;font-size:11px;font-style:normal;font-weight:750}
+body.dark #usuarios .users-stat-card{color:#e5eee7}
+body.dark #usuarios .users-stat-card.is-selected{border-color:#54c879;background:linear-gradient(145deg,#142b1c,#101a13);box-shadow:0 0 0 3px rgba(84,200,121,.12)}
+body.dark #usuarios .users-stat-copy em{color:#86efac}
+@media(max-width:680px){#usuarios .users-stat-card{display:flex;min-height:82px}}
+
 /* Rediseño integral de Usuarios. Aislado de autenticación y demás pantallas. */
 #usuarios .users-dashboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0 26px}
 #usuarios .users-stat-card{display:flex;align-items:center;gap:14px;min-width:0;padding:18px;border:1px solid #dce6f3;border-radius:16px;background:linear-gradient(145deg,#fff,#f5f8ff);box-shadow:0 5px 18px rgba(16,45,80,.06)}
@@ -426,10 +439,10 @@ body.dark #usuarios .user-status-badge.pending{background:#463516;color:#fcd34d}
 <section id="usuarios" class="tab panel hidden admin-only">
 <h2>Gestión de usuarios</h2>
 <p>Consulta los perfiles registrados, sus roles y el estado de acceso. Esta pantalla es únicamente informativa: no modifica cuentas, contraseñas ni permisos.</p>
-<div class="users-dashboard-grid" aria-label="Resumen de usuarios">
-<div class="users-stat-card"><span class="users-stat-icon">👥</span><div><small>Usuarios registrados</small><strong id="usersTotalCount">—</strong></div></div>
-<div class="users-stat-card"><span class="users-stat-icon">🧑‍💼</span><div><small>Vendedores</small><strong id="usersSellerCount">—</strong></div></div>
-<div class="users-stat-card"><span class="users-stat-icon">🛡️</span><div><small>Administradores</small><strong id="usersAdminCount">—</strong></div></div>
+<div class="users-dashboard-grid" aria-label="Filtrar usuarios">
+<button type="button" class="users-stat-card is-selected" data-users-filter="all" aria-pressed="true"><span class="users-stat-icon">👥</span><span class="users-stat-copy"><small>Usuarios registrados</small><strong id="usersTotalCount">—</strong><em>Ver todos</em></span></button>
+<button type="button" class="users-stat-card" data-users-filter="vendedor" aria-pressed="false"><span class="users-stat-icon">🧑‍💼</span><span class="users-stat-copy"><small>Vendedores</small><strong id="usersSellerCount">—</strong><em>Ver vendedores</em></span></button>
+<button type="button" class="users-stat-card" data-users-filter="admin" aria-pressed="false"><span class="users-stat-icon">🛡️</span><span class="users-stat-copy"><small>Administradores</small><strong id="usersAdminCount">—</strong><em>Ver administradores</em></span></button>
 </div>
 <div class="users-toolbar"><div><h3>Personas del sistema</h3><p>Roles, estado y fecha de registro</p></div><button type="button" id="refreshUsers" class="secondary">↻ Actualizar usuarios</button></div>
 <div class="tablewrap users-cards-wrap"><table aria-label="Usuarios registrados"><thead><tr><th>Nombre</th><th>Rol</th><th>Estado</th><th>Registro</th></tr></thead><tbody id="userRows"><tr><td colspan="4">Consultando usuarios...</td></tr></tbody></table></div>
@@ -504,24 +517,17 @@ $('dashInventoryRows').innerHTML=alertProducts.map(p=>'<tr><td>'+esc(p.name)+'</
 const sellers=profiles.filter(p=>p.role==='vendedor'||p.role==='admin').map(p=>{const own=todaySales.filter(s=>(s.seller_id||s.created_by)===p.id);return {p,count:own.length,total:sum(own,'total'),paid:sum(own,'paid_amount')}}).filter(x=>x.count).sort((a,b)=>b.total-a.total);
 $('dashSellerRows').innerHTML=sellers.map(x=>'<tr><td>'+esc(x.p.full_name||'Responsable')+(x.p.seller_code?' · '+esc(x.p.seller_code):'')+'</td><td>'+x.count+'</td><td>'+money(x.total)+'</td><td>'+money(x.paid)+'</td></tr>').join('')||'<tr><td colspan="4">Todavía no hay ventas registradas hoy.</td></tr>';
 }
-async function loadAdminUsers(){
-if(role!=='admin')return;
+let adminUsersCache=[];
+let adminUsersFilter='all';
+function renderAdminUsers(){
 const body=$('userRows');
-body.innerHTML='<tr><td colspan="4">Consultando usuarios de Auth...</td></tr>';
-const {data,error}=await db.functions.invoke('admin-list-users');
-if(error){
-body.innerHTML='<tr><td colspan="4">No se pudo consultar Auth: '+esc(error.message)+'</td></tr>';
-$('usersTotalCount').textContent='—';$('usersSellerCount').textContent='—';$('usersAdminCount').textContent='—';
-$('userAdminMsg').textContent='No se pudo consultar la lista protegida de usuarios: '+error.message;
-return;
-}
-const rows=data?.users||[];
-const sellers=rows.filter(u=>String(u.role||'vendedor').toLowerCase()==='vendedor').length;
-const admins=rows.filter(u=>String(u.role||'').toLowerCase()==='admin').length;
-$('usersTotalCount').textContent=String(rows.length);
-$('usersSellerCount').textContent=String(sellers);
-$('usersAdminCount').textContent=String(admins);
-body.innerHTML=rows.map(u=>{
+const visible=adminUsersFilter==='all'?adminUsersCache:adminUsersCache.filter(u=>String(u.role||'vendedor').toLowerCase()===adminUsersFilter);
+document.querySelectorAll('#usuarios [data-users-filter]').forEach(button=>{
+const active=button.dataset.usersFilter===adminUsersFilter;
+button.classList.toggle('is-selected',active);
+button.setAttribute('aria-pressed',String(active));
+});
+body.innerHTML=visible.map(u=>{
 const roleName=String(u.role||'vendedor').toLowerCase()==='admin'?'Administrador':'Vendedor';
 const roleIcon=roleName==='Administrador'?'🛡️':'🧑‍💼';
 const rawName=String(u.full_name||'').trim();
@@ -535,8 +541,27 @@ return '<tr>'+
 '<td><span class="user-field-label">Estado</span><span class="user-field-value"><span class="user-status-badge '+statusClass+'"><i></i>'+esc(status)+'</span></span></td>'+
 '<td><span class="user-field-label">Fecha de registro</span><span class="user-field-value user-date-value">'+esc(registered)+'</span></td>'+
 '</tr>';
-}).join('')||'<tr><td colspan="4">No hay usuarios registrados.</td></tr>';
-$('userAdminMsg').textContent='Se muestran nombres y apellidos disponibles, rol, estado y fecha de registro. No se muestran correos ni nombres de usuario.';
+}).join('')||'<tr><td colspan="4">No hay usuarios en esta categoría.</td></tr>';
+const titles={all:'Todos los usuarios',vendedor:'Vendedores',admin:'Administradores'};
+const descriptions={all:'Se muestran todas las cuentas registradas.',vendedor:'Se muestran únicamente las cuentas con rol vendedor.',admin:'Se muestran únicamente las cuentas con rol administrador.'};
+$('usuarios').querySelector('.users-toolbar h3').textContent=titles[adminUsersFilter];
+$('userAdminMsg').textContent=descriptions[adminUsersFilter]+' Los datos se consultan mediante una función protegida; no se muestran correos ni nombres de usuario.';
+}
+async function loadAdminUsers(){
+if(role!=='admin')return;
+const body=$('userRows');body.innerHTML='<tr><td colspan="4">Consultando usuarios de Auth...</td></tr>';
+const {data,error}=await db.functions.invoke('admin-list-users');
+if(error){
+body.innerHTML='<tr><td colspan="4">No se pudo consultar Auth: '+esc(error.message)+'</td></tr>';
+$('usersTotalCount').textContent='—';$('usersSellerCount').textContent='—';$('usersAdminCount').textContent='—';
+$('userAdminMsg').textContent='No se pudo consultar la lista protegida de usuarios: '+error.message;
+return;
+}
+adminUsersCache=data?.users||[];
+$('usersTotalCount').textContent=String(adminUsersCache.length);
+$('usersSellerCount').textContent=String(adminUsersCache.filter(u=>String(u.role||'vendedor').toLowerCase()==='vendedor').length);
+$('usersAdminCount').textContent=String(adminUsersCache.filter(u=>String(u.role||'').toLowerCase()==='admin').length);
+renderAdminUsers();
 }
 async function loadAdminCashSessions(){if(role!=='admin')return;const sellerId=$('adminCashSeller').value||(profiles.find(p=>p.role==='vendedor')||profiles.find(p=>p.role==='admin'))?.id;if(!sellerId){$('adminCashSession').innerHTML='<option value="">Sin responsables</option>';$('adminCashSummary').textContent='No hay vendedores registrados.';return}if($('adminCashSeller').value!==sellerId)$('adminCashSeller').value=sellerId;const {data,error}=await db.from('cash_sessions').select('*').eq('seller_id',sellerId).order('opened_at',{ascending:false}).limit(30);if(error){$('adminCashSummary').textContent='No se pudieron consultar las cajas: '+error.message;return}const sessions=data||[];$('adminCashSession').innerHTML=sessions.map(s=>'<option value="'+s.id+'">'+(s.status==='open'?'Abierta':'Cerrada')+' · '+new Date(s.opened_at).toLocaleString('es-PE')+'</option>').join('')||'<option value="">Sin sesiones</option>';if(sessions.length)await showAdminCashSummary();else $('adminCashSummary').textContent='Este responsable todavía no tiene sesiones de caja.'}
 async function showAdminCashSummary(){if(role!=='admin')return;const sessionId=$('adminCashSession').value;if(!sessionId)return;const {data,error}=await db.rpc('get_cash_session_summary',{p_session_id:sessionId});if(error){$('adminCashSummary').textContent='No se pudo consultar el resumen: '+error.message;return}const seller=profiles.find(p=>p.id===$('adminCashSeller').value);$('adminCashSummary').innerHTML='<b>'+esc(seller?.full_name||'Responsable')+' · '+esc(seller?.seller_code||'')+'</b><div class="cash-summary-grid"><div class="cash-summary-card"><small>Efectivo esperado</small><strong>'+money(data.expected_cash)+'</strong></div><div class="cash-summary-card"><small>Yape / QR esperado</small><strong>'+money(data.expected_qr)+'</strong></div><div class="cash-summary-card"><small>Total vendido</small><strong>'+money(data.sales_grand_total)+'</strong></div><div class="cash-summary-card"><small>Ventas al crédito</small><strong>'+money(data.credit_sales_total)+'</strong></div><div class="cash-summary-card"><small>Abonado en créditos</small><strong>'+money(data.credit_paid_total)+'</strong></div><div class="cash-summary-card"><small>Saldo pendiente</small><strong>'+money(data.credit_balance_total)+'</strong></div></div><small>Estado de sesión: '+esc(data.status)+'. Solo consulta; no se ha cerrado ni conciliado la caja.</small>'}
@@ -822,6 +847,6 @@ $('inventorySettingsForm').onsubmit=async e=>{e.preventDefault();const n=Number(
 $('systemSettingsForm').onsubmit=async e=>{e.preventDefault();const ok=await saveSettingsGroup('system',{default_sale_type:$('cfgDefaultSaleType').value,default_payment_method:$('cfgDefaultPayment').value,timezone:'America/Lima'},'cfgSystemMsg');if(ok){$('saleKind').value=$('cfgDefaultSaleType').value;setPaymentMethod($('cfgDefaultPayment').value)}};
 $('appearanceSettingsForm').onsubmit=async e=>{e.preventDefault();const theme=$('cfgTheme').value==='dark'?'dark':'light';const {error}=await db.from('profiles').update({preferred_theme:theme}).eq('id',user.id);if(error)return notice('cfgAppearanceMsg','No se pudo guardar el tema: '+error.message,'notice danger');applyTheme(theme);notice('cfgAppearanceMsg','Preferencia visual guardada para esta cuenta.','notice success')};
 $('cfgGoUsers').onclick=()=>document.querySelector('[data-tab="usuarios"]')?.click();
-$('refreshUsers').onclick=loadAdminUsers;$('adminCashSeller').addEventListener('change',loadAdminCashSessions);$('adminCashSession').addEventListener('change',showAdminCashSummary);
+document.querySelectorAll('#usuarios [data-users-filter]').forEach(button=>{button.onclick=()=>{adminUsersFilter=button.dataset.usersFilter;renderAdminUsers()}});$('refreshUsers').onclick=loadAdminUsers;$('adminCashSeller').addEventListener('change',loadAdminCashSessions);$('adminCashSession').addEventListener('change',showAdminCashSummary);
 db.auth.onAuthStateChange((_event,s)=>{user=s?.user||null;if(user){showApp(true);if(_event==='INITIAL_SESSION'||_event==='SIGNED_IN')setTimeout(()=>{if(user?.id===s.user.id)loadAll().catch(err=>notice('globalMsg','No se pudieron cargar los datos: '+err.message,'notice danger'))},0)}else showApp(false)});
 </script></body></html>
