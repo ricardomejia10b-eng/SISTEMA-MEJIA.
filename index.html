@@ -610,7 +610,6 @@ async function globalCreditPdfFile(a){
   const cards=[['TOTAL DE COMPRAS',money(a.total),navy],['TOTAL DE ABONOS',money(a.paid),orange],['SALDO PENDIENTE',money(a.balance),green]];
   cards.forEach((c,i)=>{const x=15+i*61;doc.setFillColor(...c[2]);doc.roundedRect(x,78,57,25,4,4,'F');doc.setFont('helvetica','bold');doc.setFontSize(7.3);doc.setTextColor(255,255,255);doc.text(c[0],x+28.5,86,{align:'center'});doc.setFontSize(12);doc.text(c[1],x+28.5,96,{align:'center'});});
   doc.setDrawColor(...navy);doc.setLineWidth(.5);doc.line(15,114,50,114);doc.line(160,114,195,114);
-  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text('DETALLE DE COMPRAS Y PAGOS',105,116,{align:'center'});
   pageMarks.push({page:doc.getNumberOfPages(),x:105,y:116});
   y=125;
  };
