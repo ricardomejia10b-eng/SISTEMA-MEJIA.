@@ -661,10 +661,8 @@ async function showGlobalCreditAccount(customerId){
   const business=businessSettings?.business||{},brand=business.commercial_name||'MECADEL DISTRIBUIDORA';
   const dateLabel=new Date().toLocaleDateString('es-PE');
   const accountText=[brand.toUpperCase(),'ESTADO DE CUENTA DEL CLIENTE','', 'Cliente: '+customer.name,'Fecha de emisión: '+dateLabel,'','RESUMEN DE CUENTA','Total de compras: '+money(total),'Total abonado: '+money(paid),'SALDO PENDIENTE: '+money(balance),'','DETALLE DE COMPRAS',...purchases.map((p,index)=>{
-    const paymentLines=(p.payments||[]).filter(py=>Number(py.amount)>0).map(py=>'• '+new Date(py.created_at).toLocaleDateString('es-PE')+' · '+String(py.payment_method||'Pago').toUpperCase()+' · '+money(py.amount));
-    const lines=['COMPRA '+String(index+1).padStart(2,'0')+' · '+new Date(p.created_at).toLocaleDateString('es-PE'),...(p.items||[]).map(i=>'• '+i.product_name+' ('+i.quantity+' '+i.unit_name+')'),'Total: '+money(p.total),...(paymentLines.length?['Abonado: '+money(p.paid_amount)]:[]),'Pendiente: '+money(Number(p.total)-Number(p.paid_amount||0))];
-    if(p.due_date)lines.push('Vencimiento: '+new Date(p.due_date+'T00:00:00').toLocaleDateString('es-PE'));
-    if(paymentLines.length)lines.push('Abonos:',...paymentLines);
+    const paymentLines=(p.payments||[]).filter(py=>Number(py.amount)>0).map(py=>{const receiver=(a.account_payments||[]).find(x=>x.id===py.account_payment_id);return '• '+new Date(py.created_at).toLocaleDateString('es-PE')+' · '+String(py.payment_method||'Pago').toUpperCase()+' · '+money(py.amount)+' · Recibió: '+(receiver?.receiver_name||'No identificado')});
+    const lines=['COMPRA '+String(index+1).padStart(2,'0')+' · '+new Date(p.created_at).toLocaleDateString('es-PE'),'Vendedor responsable: '+(p.seller_name||'No identificado'),...(p.items||[]).map(i=>'• Producto: '+i.product_name+' · Cantidad: '+i.quantity+' '+i.unit_name),'Total: '+money(p.total),...(paymentLines.length?['Abonado: '+money(p.paid_amount),'Abonos:',...paymentLines]:[]),'Saldo de esta compra: '+money(Number(p.total)-Number(p.paid_amount||0))];
     return lines.join('\n');
   }),'','TOTAL PENDIENTE: '+money(balance),'Gracias por su preferencia.',brand].join('\n');
   $('globalCreditDetail').dataset.shareText=accountText;
@@ -753,11 +751,10 @@ async function globalCreditPdfFile(a){
   const estimate=13+itemLines*4.5+payments.length*4.5+(payments.length?5:0)+(p.due_date?5:0);
   if(y+estimate>276)newPage();
   doc.setFillColor(235,241,250);doc.roundedRect(left,y-3,width,8,1.5,1.5,'F');
-  txt(String(i+1)+'.  '+new Date(p.created_at).toLocaleDateString('es-PE'),{size:9,bold:true,color:navy,gap:4.5});
+  txt(String(i+1)+'.  '+new Date(p.created_at).toLocaleDateString('es-PE')+' · Vendedor: '+(p.seller_name||'No identificado'),{size:9,bold:true,color:navy,gap:4.5});
   for(const item of p.items||[])txt('• '+item.product_name+' × '+item.quantity+' '+item.unit_name,{size:8,color:navy,gap:4.2});
   txt('Total: '+money(p.total)+(payments.length?' · Abonado: '+money(p.paid_amount):'')+' · Pendiente: '+money(Number(p.total)-Number(p.paid_amount||0)),{size:8,bold:true,gap:4.2});
-  if(p.due_date)txt('Vencimiento: '+new Date(p.due_date+'T00:00:00').toLocaleDateString('es-PE'),{size:7.5,color:muted});
-  if(payments.length){txt('ABONOS',{size:7.5,bold:true,color:orange});for(const py of payments)txt('• '+new Date(py.created_at).toLocaleDateString('es-PE')+' · '+String(py.payment_method||'Pago').toUpperCase()+' · '+money(py.amount),{size:7.5,color:muted});}
+  if(payments.length){txt('ABONOS',{size:7.5,bold:true,color:orange});for(const py of payments){const receiver=(a.account_payments||[]).find(x=>x.id===py.account_payment_id);txt('• '+new Date(py.created_at).toLocaleDateString('es-PE')+' · '+String(py.payment_method||'Pago').toUpperCase()+' · '+money(py.amount)+' · Recibió: '+(receiver?.receiver_name||'No identificado'),{size:7.5,color:muted});}}
   y+=3;
  }
  if(y+24>276)newPage();
