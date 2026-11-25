@@ -525,7 +525,7 @@ body.innerHTML=rows.map(u=>{
 const roleName=String(u.role||'vendedor').toLowerCase()==='admin'?'Administrador':'Vendedor';
 const roleIcon=roleName==='Administrador'?'🛡️':'🧑‍💼';
 const rawName=String(u.full_name||'').trim();
-const fullName=rawName.split(/\\s+/).filter(Boolean).length>=2?rawName:'Nombre no registrado';
+const fullName=rawName.split(/\s+/).filter(Boolean).length>=2?rawName:'Nombre no registrado';
 const status=String(u.status||'Sin estado');
 const statusClass=status.toLowerCase().includes('suspend')?'suspended':status.toLowerCase().includes('pendiente')?'pending':'active';
 const registered=u.created_at?new Date(u.created_at).toLocaleString('es-PE'):'—';
