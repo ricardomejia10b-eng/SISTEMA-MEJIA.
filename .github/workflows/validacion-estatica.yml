@@ -1,0 +1,58 @@
+name: Validación estática de SISTEMA MEJÍA
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [actualizacion-integral-sistema-mejia]
+
+permissions:
+  contents: read
+
+jobs:
+  validar-javascript:
+    name: Validar sintaxis JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Comprobar bloques JavaScript de index.html
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)]
+            .map(match => match[1])
+            .filter(source => source.trim().length > 0);
+          if (scripts.length === 0) {
+            console.error('No se encontraron bloques JavaScript en index.html');
+            process.exit(1);
+          }
+          for (let i = 0; i < scripts.length; i++) {
+            try {
+              new Function(scripts[i]);
+            } catch (error) {
+              console.error('Error de sintaxis en bloque <script> ' + (i + 1) + ': ' + error.message);
+              process.exit(1);
+            }
+          }
+          console.log('Sintaxis correcta en ' + scripts.length + ' bloques JavaScript.');
+          NODE
+
+      - name: Verificar que la app use la RPC de ventas vigente
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const html = fs.readFileSync('index.html', 'utf8');
+          if (!html.includes("db.rpc('finalize_sale_v5',args)")) {
+            console.error('La aplicación no llama a finalize_sale_v5.');
+            process.exit(1);
+          }
+          console.log('La aplicación llama a finalize_sale_v5.');
+          NODE
