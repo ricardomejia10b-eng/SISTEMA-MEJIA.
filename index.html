@@ -339,6 +339,18 @@ body.dark button.secondary{background:#17251b;color:#d8f5df;border-color:#386044
 body.dark #usuarios .tablewrap tbody tr{background:#0c120e;border-color:#29362c;box-shadow:none}
 body.dark #usuarios .tablewrap tbody td{border-bottom-color:#29362c;color:#e5eee7}
 body.dark #usuarios .tablewrap tbody td::before{color:#a9b8ad}
+/* Ajustes de legibilidad para tarjetas de usuarios: no altera autenticación ni datos */
+#usuarios{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#usuarios .tablewrap tbody tr,
+#usuarios .tablewrap tbody tr:nth-child(even){background:#fff!important}
+#usuarios .tablewrap tbody tr:hover td{background:transparent!important}
+#usuarios .tablewrap tbody td{grid-template-columns:minmax(132px,.9fr) minmax(0,1.1fr);background:transparent!important;font-family:inherit;font-size:14px;line-height:1.45}
+#usuarios .tablewrap tbody td::before{font-family:inherit;font-size:13px;line-height:1.45}
+body.dark #usuarios .tablewrap tbody tr,
+body.dark #usuarios .tablewrap tbody tr:nth-child(even){background:#0c120e!important}
+body.dark #usuarios .tablewrap tbody tr:hover td{background:transparent!important}
+@media(max-width:560px){#usuarios .tablewrap tbody td{grid-template-columns:minmax(124px,.9fr) minmax(0,1.1fr)}}
+
 @media(max-width:560px){#usuarios .tablewrap tbody{grid-template-columns:1fr}#usuarios .tablewrap tbody tr{padding:13px}}
 
 </style></head><body>
